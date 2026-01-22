@@ -80,7 +80,33 @@ function GatewayOverview() {
         const response = await fetch('/api/gateways/health')
         if (response.ok) {
           const data = await response.json()
-          setGatewayHealth(data)
+          // Transform health data to match expected format
+          const transformedData = data.map(gateway => {
+            // Determine status from health_score
+            let status = 'UNKNOWN'
+            if (gateway.health_score === 100) {
+              status = 'HEALTHY'
+            } else if (gateway.health_score === 70) {
+              status = 'DEGRADED'
+            } else if (gateway.health_score === 40) {
+              status = 'CRITICAL'
+            }
+            
+            // Calculate avgScore from avg_snr and avg_rssi (simple RF score formula)
+            let avgScore = null
+            if (gateway.avg_snr !== null && gateway.avg_rssi !== null) {
+              avgScore = Math.round((gateway.avg_snr * 2) + (gateway.avg_rssi / 10))
+            }
+            
+            return {
+              gatewayId: gateway.gateway_id,
+              status: status,
+              avgScore: avgScore,
+              stabilityIndex: 'N/A', // Not available in health endpoint
+              lastSeen: gateway.last_seen,
+            }
+          })
+          setGatewayHealth(transformedData)
         }
       } catch (error) {
         console.error('Error fetching gateway health:', error)
@@ -264,10 +290,12 @@ function GatewayOverview() {
                 </tr>
               </thead>
               <tbody>
-                {gatewayHealth.map((gateway) => (
+                {gatewayHealth.map((gateway) => {
+                  const status = gateway.status || 'UNKNOWN'
+                  return (
                   <tr 
                     key={gateway.gatewayId}
-                    className={`gateway-row--${gateway.status.toLowerCase()}`}
+                    className={`gateway-row--${status.toLowerCase()}`}
                     onClick={() => navigate(`/gateway/${gateway.gatewayId}`)}
                   >
                     <td>
@@ -275,13 +303,13 @@ function GatewayOverview() {
                     </td>
                     <td>
                       <div className="gateway-score">
-                        <span className={`gateway-score-value gateway-score--${gateway.status.toLowerCase()}`}>
+                        <span className={`gateway-score-value gateway-score--${status.toLowerCase()}`}>
                           {gateway.avgScore}
                         </span>
                       </div>
                     </td>
                     <td>
-                      <StatusBadge status={gateway.status} />
+                      <StatusBadge status={status} />
                     </td>
                     <td>
                       <span className="stability-text">{gateway.stabilityIndex}</span>
@@ -290,7 +318,8 @@ function GatewayOverview() {
                       <span className="last-seen">{getRelativeTime(gateway.lastSeen)}</span>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

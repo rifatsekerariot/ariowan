@@ -32,8 +32,13 @@ function DashboardKPIs() {
 
         for (const gateway of gateways) {
           try {
+            const gatewayId = gateway.gateway_id || gateway.gatewayId
+            if (!gatewayId) {
+              console.warn('Gateway missing gateway_id:', gateway)
+              continue
+            }
             const metricsResponse = await fetch(
-              `/api/gateways/${gateway.gatewayId}/metrics?from=${encodeURIComponent(oneHourAgo)}&to=${encodeURIComponent(now.toISOString())}`
+              `/api/gateways/${gatewayId}/metrics?from=${encodeURIComponent(oneHourAgo)}&to=${encodeURIComponent(now.toISOString())}`
             )
             if (metricsResponse.ok) {
               const metrics = await metricsResponse.json()
@@ -44,7 +49,8 @@ function DashboardKPIs() {
               }
             }
           } catch (error) {
-            console.error(`Error fetching metrics for gateway ${gateway.gatewayId}:`, error)
+            const gatewayId = gateway.gateway_id || gateway.gatewayId
+            console.error(`Error fetching metrics for gateway ${gatewayId}:`, error)
           }
         }
 
