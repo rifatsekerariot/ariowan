@@ -1,17 +1,3 @@
--- RF Analytics Platform Database Schema
--- PostgreSQL 14+ compatible
---
--- Execution order:
--- 1. CREATE TABLE statements
--- 2. CREATE INDEX statements (after all tables)
--- 3. CREATE FUNCTION statements
--- 4. CREATE TRIGGER statements
--- 5. CREATE VIEW statements
-
--- ============================================================================
--- TABLES
--- ============================================================================
-
 CREATE TABLE IF NOT EXISTS gateways (
     gateway_id VARCHAR(255) PRIMARY KEY,
     first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -42,10 +28,6 @@ CREATE TABLE IF NOT EXISTS uplinks (
     FOREIGN KEY (gateway_id) REFERENCES gateways(gateway_id) ON DELETE CASCADE
 );
 
--- ============================================================================
--- INDEXES
--- ============================================================================
-
 CREATE INDEX IF NOT EXISTS idx_gateways_last_seen ON gateways(last_seen);
 
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON devices(last_seen);
@@ -59,10 +41,6 @@ CREATE INDEX IF NOT EXISTS idx_uplinks_timestamp ON uplinks(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_uplinks_is_best ON uplinks(is_best) WHERE is_best = TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_uplinks_dev_eui_gateway_timestamp ON uplinks(dev_eui, gateway_id, timestamp DESC);
-
--- ============================================================================
--- TRIGGER FUNCTIONS
--- ============================================================================
 
 CREATE OR REPLACE FUNCTION update_gateway_last_seen()
 RETURNS TRIGGER AS $$
@@ -86,25 +64,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================================================
--- TRIGGERS
--- ============================================================================
-
 DROP TRIGGER IF EXISTS trigger_update_gateway_last_seen ON uplinks;
+
 CREATE TRIGGER trigger_update_gateway_last_seen
     AFTER INSERT ON uplinks
     FOR EACH ROW
     EXECUTE FUNCTION update_gateway_last_seen();
 
 DROP TRIGGER IF EXISTS trigger_update_device_last_seen ON uplinks;
+
 CREATE TRIGGER trigger_update_device_last_seen
     AFTER INSERT ON uplinks
     FOR EACH ROW
     EXECUTE FUNCTION update_device_last_seen();
-
--- ============================================================================
--- VIEWS
--- ============================================================================
 
 CREATE OR REPLACE VIEW gateway_health_summary AS
 SELECT 
