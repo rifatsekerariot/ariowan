@@ -5,10 +5,9 @@
 }
 
 .app-header {
-  background-color: white;
+  background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   padding: var(--spacing-lg) var(--spacing-xl);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .app-header h1 {

@@ -1,7 +1,6 @@
 .gateway-overview-card {
-  background-color: white;
+  background-color: var(--bg-card);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   padding: var(--spacing-lg);
   margin-top: var(--spacing-lg);
 }
@@ -28,11 +27,10 @@
 .gateway-table tbody tr {
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
-  transition: background-color 0.15s;
 }
 
 .gateway-table tbody tr:hover {
-  background-color: #fafbfc;
+  background-color: #273549;
 }
 
 .gateway-table tbody tr:last-child {
