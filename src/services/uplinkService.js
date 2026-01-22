@@ -124,7 +124,6 @@ async function processUplink(payload) {
   // Process each valid rxInfo item (multiple gateways can receive the same uplink)
   for (let i = 0; i < validRxInfo.length; i++) {
     const rxItem = validRxInfo[i];
-    const rxItem = rxInfo[i];
     
     if (!rxItem || typeof rxItem !== 'object') {
       logger.warn('Invalid rxInfo item: not an object', { 
