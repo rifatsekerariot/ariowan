@@ -1,12 +1,16 @@
 const db = require('../db/connection');
 const { calculateStabilityIndex, calculateStabilityIndexForGateway } = require('../utils/stability');
+const logger = require('../utils/logger');
 
 /**
  * Get health metrics for all gateways
- * @returns {Promise<Array>} Array of gateway health objects
+ * Uses PostgreSQL query with optimized indexes
+ * Returns empty array if no data exists
+ * @returns {Promise<Array>} Array of gateway health objects (empty array if no data)
  */
 async function getGatewayHealth() {
   try {
+    // Query uses idx_uplinks_gateway_id_timestamp index
     const result = await db.query(`
       SELECT 
         g.gateway_id,
@@ -25,6 +29,12 @@ async function getGatewayHealth() {
       ORDER BY g.gateway_id
     `);
     
+    // Return empty array if no results
+    if (result.rows.length === 0) {
+      logger.debug('No gateway health data found');
+      return [];
+    }
+    
     // Calculate stability index for each gateway
     const gatewayHealth = [];
     for (const row of result.rows) {
@@ -39,10 +49,10 @@ async function getGatewayHealth() {
       });
     }
     
-    console.log(`Gateways tracked: ${gatewayHealth.length}`);
+    logger.debug(`Gateway health data retrieved`, { count: gatewayHealth.length });
     return gatewayHealth;
   } catch (error) {
-    console.error('Error fetching gateway health:', error);
+    logger.error('Error fetching gateway health', error);
     throw error;
   }
 }

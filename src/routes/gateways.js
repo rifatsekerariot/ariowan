@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const gatewayService = require('../services/gatewayService');
+const logger = require('../utils/logger');
 
 /**
  * GET /api/gateways
@@ -11,7 +12,7 @@ router.get('/gateways', async (req, res) => {
     const gateways = await gatewayService.getAllGateways();
     res.json(gateways);
   } catch (error) {
-    console.error('Error fetching gateways:', error);
+    logger.error('Error fetching gateways', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -19,13 +20,15 @@ router.get('/gateways', async (req, res) => {
 /**
  * GET /api/gateways/health
  * Get health metrics for all gateways
+ * Returns empty array [] if no data exists (not 404)
  */
 router.get('/gateways/health', async (req, res) => {
   try {
     const gatewayHealth = await gatewayService.getGatewayHealth();
-    res.json(gatewayHealth);
+    // Always return array, even if empty
+    res.json(gatewayHealth || []);
   } catch (error) {
-    console.error('Error fetching gateway health:', error);
+    logger.error('Error fetching gateway health', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -125,7 +125,7 @@ async function getClient() {
 }
 
 /**
- * Check if tables exist in the database
+ * Check if required tables exist in the database using information_schema
  * @returns {Promise<boolean>} True if all required tables exist
  */
 async function tablesExist() {
@@ -136,71 +136,216 @@ async function tablesExist() {
       WHERE table_schema = 'public' 
       AND table_name IN ('gateways', 'devices', 'uplinks')
     `);
-    return result.rows.length === 3;
-  } catch (error) {
-    console.error('Error checking tables:', error);
-    return false;
-  }
-}
-
-/**
- * Load schema from schema.sql file
- * @returns {Promise<void>}
- */
-async function loadSchema() {
-  try {
-    const schemaPath = path.join(__dirname, '../../database/schema.sql');
-    const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+    const tableCount = result.rows.length;
+    const allTablesExist = tableCount === 3;
     
-    // Split by semicolons and execute each statement
-    // Remove comments and empty lines
-    const statements = schemaSQL
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.startsWith('--'));
-    
-    logger.info(`Loading schema: ${statements.length} statements`);
-    
-    // Execute statements sequentially
-    for (const statement of statements) {
-      if (statement.trim().length > 0) {
-        try {
-          await query(statement);
-        } catch (err) {
-          // Ignore "already exists" errors for CREATE IF NOT EXISTS
-          if (!err.message.includes('already exists') && 
-              !err.message.includes('duplicate key')) {
-            logger.warn('Schema statement warning', {
-              error: err.message,
-              statement: statement.substring(0, 100),
-            });
-          }
-        }
-      }
+    if (allTablesExist) {
+      logger.debug('All required tables exist', {
+        tables: result.rows.map(r => r.table_name),
+      });
+    } else {
+      logger.info('Required tables missing', {
+        found: tableCount,
+        expected: 3,
+        tables: result.rows.map(r => r.table_name),
+      });
     }
     
-    logger.info('Schema loaded successfully');
+    return allTablesExist;
   } catch (error) {
-    console.error('Error loading schema:', error);
+    logger.error('Error checking tables existence', error);
     throw error;
   }
 }
 
 /**
- * Initialize database: check tables and load schema if needed
+ * Parse schema.sql file into executable statements
+ * Handles PostgreSQL $$ delimiters for function bodies
+ * @param {string} schemaSQL - Raw SQL content
+ * @returns {Array<string>} Array of SQL statements
+ */
+function parseSchemaStatements(schemaSQL) {
+  const statements = [];
+  let currentStatement = '';
+  let inDollarQuote = false;
+  let dollarTag = '';
+  let i = 0;
+
+  while (i < schemaSQL.length) {
+    const char = schemaSQL[i];
+    const nextChar = schemaSQL[i + 1] || '';
+
+    // Detect start of dollar-quoted string ($$ or $tag$)
+    if (char === '$' && !inDollarQuote) {
+      let tag = '$';
+      let j = i + 1;
+      while (j < schemaSQL.length && schemaSQL[j] !== '$') {
+        tag += schemaSQL[j];
+        j++;
+      }
+      if (j < schemaSQL.length) {
+        tag += '$';
+        dollarTag = tag;
+        inDollarQuote = true;
+        currentStatement += char;
+        i++;
+        continue;
+      }
+    }
+
+    // Detect end of dollar-quoted string
+    if (inDollarQuote && schemaSQL.substring(i).startsWith(dollarTag)) {
+      currentStatement += dollarTag;
+      i += dollarTag.length;
+      inDollarQuote = false;
+      dollarTag = '';
+      continue;
+    }
+
+    currentStatement += char;
+
+    // Detect statement end (semicolon outside dollar quotes)
+    if (!inDollarQuote && char === ';') {
+      const trimmed = currentStatement.trim();
+      // Skip empty statements and comments
+      if (trimmed.length > 0 && !trimmed.startsWith('--')) {
+        statements.push(trimmed);
+      }
+      currentStatement = '';
+    }
+
+    i++;
+  }
+
+  // Add final statement if exists
+  const trimmed = currentStatement.trim();
+  if (trimmed.length > 0 && !trimmed.startsWith('--')) {
+    statements.push(trimmed);
+  }
+
+  return statements.filter(s => s.length > 0);
+}
+
+/**
+ * Load schema from schema.sql file
+ * Executes all statements and aborts on any error
  * @returns {Promise<void>}
+ * @throws {Error} If any SQL statement fails
+ */
+async function loadSchema() {
+  const schemaPath = path.join(__dirname, '../../database/schema.sql');
+  
+  if (!fs.existsSync(schemaPath)) {
+    throw new Error(`Schema file not found: ${schemaPath}`);
+  }
+
+  const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+  const statements = parseSchemaStatements(schemaSQL);
+  
+  if (statements.length === 0) {
+    throw new Error('No SQL statements found in schema file');
+  }
+
+  logger.info('Loading database schema', {
+    statements: statements.length,
+    schemaPath: schemaPath,
+  });
+
+  let successCount = 0;
+  let errorCount = 0;
+  const errors = [];
+
+  // Execute statements sequentially
+  for (let i = 0; i < statements.length; i++) {
+    const statement = statements[i];
+    const statementNum = i + 1;
+
+    try {
+      await query(statement);
+      successCount++;
+      logger.debug(`Schema statement ${statementNum}/${statements.length} executed successfully`);
+    } catch (err) {
+      errorCount++;
+      const errorInfo = {
+        statement: statementNum,
+        total: statements.length,
+        error: err.message,
+        code: err.code,
+        sql: statement.substring(0, 200), // First 200 chars for logging
+      };
+
+      // Check if error is acceptable (already exists for IF NOT EXISTS)
+      const isAcceptableError = 
+        err.message.includes('already exists') ||
+        err.message.includes('duplicate key') ||
+        err.code === '42P07' || // duplicate_table
+        err.code === '42710';   // duplicate_object
+
+      if (isAcceptableError) {
+        logger.debug(`Schema statement ${statementNum} skipped (already exists)`, {
+          code: err.code,
+        });
+        successCount++; // Count as success for IF NOT EXISTS
+      } else {
+        // Real error - abort
+        errors.push(errorInfo);
+        logger.error(`Schema statement ${statementNum} failed`, errorInfo);
+        
+        // Abort on first real error
+        throw new Error(
+          `Schema loading failed at statement ${statementNum}/${statements.length}: ${err.message}`
+        );
+      }
+    }
+  }
+
+  // Only log success if no errors occurred
+  if (errorCount === 0 || errors.length === 0) {
+    logger.info('Database schema loaded successfully', {
+      statements: successCount,
+    });
+  } else {
+    // This should not happen due to throw above, but just in case
+    throw new Error(
+      `Schema loading completed with errors: ${errors.length} failed statements`
+    );
+  }
+}
+
+/**
+ * Initialize database: check tables and load schema if needed
+ * Loads schema only once if tables don't exist
+ * Aborts startup on any SQL error
+ * @returns {Promise<void>}
+ * @throws {Error} If initialization fails
  */
 async function initializeDatabase() {
   try {
-    const exist = await tablesExist();
-    if (!exist) {
-      logger.info('Tables do not exist, loading schema...');
+    // Check if tables exist using information_schema
+    const tablesExistResult = await tablesExist();
+    
+    if (!tablesExistResult) {
+      logger.info('Required tables not found, loading schema...');
       await loadSchema();
+      
+      // Verify tables were created
+      const verifyResult = await tablesExist();
+      if (!verifyResult) {
+        throw new Error(
+          'Schema loading completed but required tables still missing. ' +
+          'Check schema.sql for errors.'
+        );
+      }
+      
+      logger.info('Database schema initialized successfully');
     } else {
-      logger.info('Tables already exist, skipping schema load');
+      logger.info('Database tables already exist, skipping schema load');
     }
   } catch (error) {
-    logger.error('Database initialization error', error);
+    logger.error('Database initialization failed', {
+      error: error.message,
+      stack: error.stack,
+    });
     throw error;
   }
 }
@@ -234,4 +379,5 @@ module.exports = {
   loadSchema,
   initializeDatabase,
   close,
+  // Expose tablesExist for health checks
 };

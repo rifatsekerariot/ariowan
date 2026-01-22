@@ -1,6 +1,8 @@
 const express = require('express');
 const db = require('./db/connection');
 const logger = require('./utils/logger');
+const routeTracker = require('./utils/routeTracker');
+const { auditRoutes } = require('./utils/routeAuditor');
 
 const app = express();
 const PORT = process.env.PORT || 8090;
@@ -58,12 +60,37 @@ db.initializeDatabase()
     const gatewayRoutes = require('./routes/gateways');
     const deviceRoutes = require('./routes/devices');
     
-    // Register routes
+    // Register routes with tracking
+    // Health check at root (standard for health checks)
     app.use('/', healthRoutes);
+    routeTracker.trackRoute('GET', '/health', '/');
+    
+    // Webhook endpoint at root (ChirpStack integration)
     app.use('/', uplinkRoutes);
+    routeTracker.trackRoute('POST', '/', '/');
+    
+    // All API routes under /api prefix
     app.use('/api', lastUplinkRoutes);
+    routeTracker.trackRoute('GET', '/last-uplink', '/api');
+    
     app.use('/api', gatewayRoutes);
+    routeTracker.trackRoute('GET', '/gateways', '/api');
+    routeTracker.trackRoute('GET', '/gateways/health', '/api');
+    routeTracker.trackRoute('GET', '/gateways/:id/metrics', '/api');
+    routeTracker.trackRoute('GET', '/gateways/:gatewayId', '/api');
+    
     app.use('/api', deviceRoutes);
+    routeTracker.trackRoute('GET', '/devices', '/api');
+    routeTracker.trackRoute('GET', '/devices/health', '/api');
+    routeTracker.trackRoute('GET', '/devices/:eui/metrics', '/api');
+    routeTracker.trackRoute('GET', '/devices/:devEui', '/api');
+    
+    // Log all registered routes at startup
+    routeTracker.logRoutes(logger);
+    
+    // Audit routes to ensure they meet requirements
+    const routes = routeTracker.getRoutes();
+    auditRoutes(routes, logger);
     
     // Start server
     server = app.listen(PORT, () => {

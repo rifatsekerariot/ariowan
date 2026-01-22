@@ -1,11 +1,18 @@
 -- RF Analytics Platform Database Schema
--- PostgreSQL 14+ (or SQLite with modifications)
+-- PostgreSQL 14+ compatible
+--
+-- Execution order:
+-- 1. CREATE TABLE statements (no dependencies)
+-- 2. CREATE INDEX statements (after all tables)
+-- 3. CREATE FUNCTION statements (trigger functions)
+-- 4. CREATE TRIGGER statements (after functions)
+-- 5. CREATE VIEW statements (optional, after all dependencies)
 
 -- ============================================================================
--- GATEWAYS TABLE
+-- TABLES
 -- ============================================================================
--- Stores gateway metadata and tracking information
 
+-- Gateways table: Stores gateway metadata and tracking information
 CREATE TABLE IF NOT EXISTS gateways (
     gateway_id VARCHAR(255) PRIMARY KEY,
     first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -14,13 +21,7 @@ CREATE TABLE IF NOT EXISTS gateways (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_gateways_last_seen ON gateways(last_seen);
-
--- ============================================================================
--- DEVICES TABLE
--- ============================================================================
--- Stores device metadata and tracking information
-
+-- Devices table: Stores device metadata and tracking information
 CREATE TABLE IF NOT EXISTS devices (
     dev_eui VARCHAR(255) PRIMARY KEY,
     first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -29,14 +30,8 @@ CREATE TABLE IF NOT EXISTS devices (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON devices(last_seen);
-
--- ============================================================================
--- UPLINKS TABLE
--- ============================================================================
--- Core table storing all uplink events with computed metrics
+-- Uplinks table: Core table storing all uplink events with computed metrics
 -- This is the primary table for analytics and reporting
-
 CREATE TABLE IF NOT EXISTS uplinks (
     id BIGSERIAL PRIMARY KEY,
     dev_eui VARCHAR(255) NOT NULL,
@@ -47,12 +42,21 @@ CREATE TABLE IF NOT EXISTS uplinks (
     rf_score INTEGER NOT NULL,
     is_best BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
     FOREIGN KEY (dev_eui) REFERENCES devices(dev_eui) ON DELETE CASCADE,
     FOREIGN KEY (gateway_id) REFERENCES gateways(gateway_id) ON DELETE CASCADE
 );
 
--- Indexes for common query patterns
+-- ============================================================================
+-- INDEXES
+-- ============================================================================
+
+-- Gateway indexes
+CREATE INDEX IF NOT EXISTS idx_gateways_last_seen ON gateways(last_seen);
+
+-- Device indexes
+CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON devices(last_seen);
+
+-- Uplink indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_uplinks_dev_eui_timestamp 
     ON uplinks(dev_eui, timestamp DESC);
 
@@ -69,7 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_uplinks_dev_eui_gateway_timestamp
     ON uplinks(dev_eui, gateway_id, timestamp DESC);
 
 -- ============================================================================
--- HELPER FUNCTIONS (PostgreSQL only)
+-- TRIGGER FUNCTIONS
 -- ============================================================================
 
 -- Function to update gateway last_seen timestamp
@@ -84,12 +88,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to auto-update gateway last_seen
-CREATE TRIGGER trigger_update_gateway_last_seen
-    AFTER INSERT ON uplinks
-    FOR EACH ROW
-    EXECUTE FUNCTION update_gateway_last_seen();
-
 -- Function to update device last_seen timestamp
 CREATE OR REPLACE FUNCTION update_device_last_seen()
 RETURNS TRIGGER AS $$
@@ -102,14 +100,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to auto-update device last_seen
+-- ============================================================================
+-- TRIGGERS
+-- ============================================================================
+
+-- Trigger to auto-update gateway last_seen when uplink is inserted
+CREATE TRIGGER trigger_update_gateway_last_seen
+    AFTER INSERT ON uplinks
+    FOR EACH ROW
+    EXECUTE FUNCTION update_gateway_last_seen();
+
+-- Trigger to auto-update device last_seen when uplink is inserted
 CREATE TRIGGER trigger_update_device_last_seen
     AFTER INSERT ON uplinks
     FOR EACH ROW
     EXECUTE FUNCTION update_device_last_seen();
 
 -- ============================================================================
--- VIEWS FOR COMMON QUERIES (Optional, for convenience)
+-- VIEWS (Optional, for convenience)
 -- ============================================================================
 
 -- View: Gateway Health Summary

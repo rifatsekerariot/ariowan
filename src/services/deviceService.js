@@ -1,15 +1,19 @@
 const db = require('../db/connection');
 const { calculateUplinkContinuity } = require('../utils/connectivity');
+const logger = require('../utils/logger');
 
 const EXPECTED_UPLINK_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 const OFFLINE_THRESHOLD_MS = 5 * EXPECTED_UPLINK_INTERVAL_MS; // 75 minutes
 
 /**
  * Get health metrics for all devices
- * @returns {Promise<Array>} Array of device health objects
+ * Uses PostgreSQL query with optimized indexes
+ * Returns empty array if no data exists
+ * @returns {Promise<Array>} Array of device health objects (empty array if no data)
  */
 async function getDeviceHealth() {
   try {
+    // Query uses idx_uplinks_dev_eui_timestamp index
     const result = await db.query(`
       SELECT 
         d.dev_eui,
@@ -28,6 +32,12 @@ async function getDeviceHealth() {
       ORDER BY d.dev_eui
     `);
     
+    // Return empty array if no results
+    if (result.rows.length === 0) {
+      logger.debug('No device health data found');
+      return [];
+    }
+    
     // Calculate connectivity status for each device
     const deviceHealth = [];
     for (const row of result.rows) {
@@ -42,10 +52,10 @@ async function getDeviceHealth() {
       });
     }
     
-    console.log(`Devices tracked: ${deviceHealth.length}`);
+    logger.debug('Device health data retrieved', { count: deviceHealth.length });
     return deviceHealth;
   } catch (error) {
-    console.error('Error fetching device health:', error);
+    logger.error('Error fetching device health', error);
     throw error;
   }
 }

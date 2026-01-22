@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const deviceService = require('../services/deviceService');
+const logger = require('../utils/logger');
 
 /**
  * GET /api/devices
@@ -11,7 +12,7 @@ router.get('/devices', async (req, res) => {
     const devices = await deviceService.getAllDevices();
     res.json(devices);
   } catch (error) {
-    console.error('Error fetching devices:', error);
+    logger.error('Error fetching devices', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -19,13 +20,15 @@ router.get('/devices', async (req, res) => {
 /**
  * GET /api/devices/health
  * Get health metrics for all devices
+ * Returns empty array [] if no data exists (not 404)
  */
 router.get('/devices/health', async (req, res) => {
   try {
     const deviceHealth = await deviceService.getDeviceHealth();
-    res.json(deviceHealth);
+    // Always return array, even if empty
+    res.json(deviceHealth || []);
   } catch (error) {
-    console.error('Error fetching device health:', error);
+    logger.error('Error fetching device health', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
