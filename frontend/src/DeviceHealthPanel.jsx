@@ -67,21 +67,24 @@ function DeviceHealthPanel() {
 
   return (
     <div className="device-health-panel">
-      {deviceHealth.map((device) => (
+      {deviceHealth.map((device) => {
+        const status = device.status || 'UNKNOWN'
+        const statusColor = getStatusColor(status)
+        return (
         <div 
-          key={device.dev_eui} 
-          className={`device-health-card device-health-card--${getStatusColor(device.status).toLowerCase()}`}
+          key={device.dev_eui || device.devEui} 
+          className={`device-health-card device-health-card--${statusColor.toLowerCase()}`}
         >
           <div className="device-health-card-header">
-            <div className="device-health-card-eui">{device.dev_eui}</div>
-            <div className={`device-health-card-status device-health-card-status--${getStatusColor(device.status).toLowerCase()}`}>
-              {device.status}
+            <div className="device-health-card-eui">{device.dev_eui || device.devEui}</div>
+            <div className={`device-health-card-status device-health-card-status--${statusColor.toLowerCase()}`}>
+              {status}
             </div>
           </div>
           <div className="device-health-card-body">
             <div className="device-health-card-field">
               <span className="device-health-card-label">Last Uplink:</span>
-              <span className="device-health-card-value">{getRelativeTime(device.last_seen)}</span>
+              <span className="device-health-card-value">{getRelativeTime(device.last_seen || device.lastSeen)}</span>
             </div>
             <div className="device-health-card-field">
               <span className="device-health-card-label">Uplinks (24h):</span>
@@ -89,7 +92,8 @@ function DeviceHealthPanel() {
             </div>
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

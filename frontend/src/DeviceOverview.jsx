@@ -14,7 +14,15 @@ function DeviceOverview() {
         const response = await fetch('/api/devices/health')
         if (response.ok) {
           const data = await response.json()
-          setDeviceHealth(data)
+          // Transform health data to match expected format
+          const transformedData = (data || []).map((device) => ({
+            devEui: device.dev_eui || device.devEui,
+            lastSeen: device.last_seen || device.lastSeen,
+            connectivityStatus: device.status || 'UNKNOWN',
+            rfStatus: 'UNKNOWN', // Not available in health endpoint
+            avgScore: null, // Not available in health endpoint
+          }))
+          setDeviceHealth(transformedData)
         }
       } catch (error) {
         console.error('Error fetching device health:', error)
@@ -47,9 +55,9 @@ function DeviceOverview() {
 
   // Calculate summary stats
   const totalDevices = deviceHealth.length
-  const onlineCount = deviceHealth.filter(d => d.connectivityStatus === 'ONLINE').length
-  const offlineCount = deviceHealth.filter(d => d.connectivityStatus === 'OFFLINE').length
-  const criticalRfCount = deviceHealth.filter(d => d.rfStatus === 'CRITICAL').length
+  const onlineCount = deviceHealth.filter(d => (d.connectivityStatus || 'UNKNOWN') === 'ONLINE').length
+  const offlineCount = deviceHealth.filter(d => (d.connectivityStatus || 'UNKNOWN') === 'OFFLINE').length
+  const criticalRfCount = deviceHealth.filter(d => (d.rfStatus || 'UNKNOWN') === 'CRITICAL').length
 
   const summaryStats = [
     { title: 'Total Devices', value: totalDevices },
@@ -79,9 +87,11 @@ function DeviceOverview() {
               </thead>
               <tbody>
                 {deviceHealth.map((device) => {
-                  const rowClass = device.connectivityStatus === 'OFFLINE' 
+                  const rfStatus = device.rfStatus || 'UNKNOWN'
+                  const connectivityStatus = device.connectivityStatus || 'UNKNOWN'
+                  const rowClass = connectivityStatus === 'OFFLINE' 
                     ? 'device-row--offline' 
-                    : `device-row--${device.rfStatus.toLowerCase()}`
+                    : `device-row--${rfStatus.toLowerCase()}`
                   return (
                     <tr 
                       key={device.devEui}
@@ -94,7 +104,7 @@ function DeviceOverview() {
                       <td>
                         <div className="device-score">
                           {device.avgScore !== null ? (
-                            <span className={`device-score-value device-score--${device.rfStatus.toLowerCase()}`}>
+                            <span className={`device-score-value device-score--${rfStatus.toLowerCase()}`}>
                               {device.avgScore}
                             </span>
                           ) : (
@@ -103,10 +113,10 @@ function DeviceOverview() {
                         </div>
                       </td>
                       <td>
-                        <StatusBadge status={device.rfStatus} />
+                        <StatusBadge status={rfStatus} />
                       </td>
                       <td>
-                        <StatusBadge status={device.connectivityStatus} />
+                        <StatusBadge status={connectivityStatus} />
                       </td>
                       <td>
                         <span className="last-seen">{getRelativeTime(device.lastSeen)}</span>

@@ -178,7 +178,7 @@ function GatewayDetail() {
           </div>
           <div className="health-score-display">
             <div className="health-score-label">Health Score</div>
-            <div className={`health-score-value health-score--${gatewayData.status.toLowerCase()}`}>
+            <div className={`health-score-value health-score--${(gatewayData.status || 'UNKNOWN').toLowerCase()}`}>
               {gatewayData.healthScore}
             </div>
           </div>
