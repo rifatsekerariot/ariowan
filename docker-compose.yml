@@ -1,17 +1,73 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: rf-analytics-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-rf_analytics}
+      POSTGRES_USER: ${DB_USER:-rf_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-rf_password_change_me}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - rf-analytics-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rf_user} -d ${DB_NAME:-rf_analytics}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: rf-analytics-backend
     restart: unless-stopped
+    environment:
+      # Database configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-rf_analytics}
+      DB_USER: ${DB_USER:-rf_user}
+      DB_PASSWORD: ${DB_PASSWORD:-rf_password_change_me}
+      # Connection pool
+      DB_POOL_MIN: ${DB_POOL_MIN:-2}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      DB_POOL_IDLE_TIMEOUT: ${DB_POOL_IDLE_TIMEOUT:-30000}
+      DB_POOL_CONNECTION_TIMEOUT: ${DB_POOL_CONNECTION_TIMEOUT:-2000}
+      DB_STATEMENT_TIMEOUT: ${DB_STATEMENT_TIMEOUT:-30000}
+      DB_QUERY_TIMEOUT: ${DB_QUERY_TIMEOUT:-30000}
+      # Server
+      PORT: ${PORT:-8090}
+      NODE_ENV: ${NODE_ENV:-production}
+      MAX_REQUEST_SIZE: ${MAX_REQUEST_SIZE:-10mb}
+      # Rate limiting
+      WEBHOOK_RATE_LIMIT: ${WEBHOOK_RATE_LIMIT:-100}
+      WEBHOOK_RATE_WINDOW_MS: ${WEBHOOK_RATE_WINDOW_MS:-60000}
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SLOW_QUERY_THRESHOLD_MS: ${SLOW_QUERY_THRESHOLD_MS:-100}
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - rf-analytics-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8090/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
 
   frontend:
     build:
       context: ./frontend
     container_name: rf-analytics-frontend
+    restart: unless-stopped
     depends_on:
       - backend
     networks:
@@ -20,8 +76,9 @@ services:
   nginx:
     image: nginx:alpine
     container_name: rf-analytics-nginx
+    restart: unless-stopped
     ports:
-      - "80:80"
+      - "${NGINX_PORT:-80}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -29,6 +86,10 @@ services:
       - frontend
     networks:
       - rf-analytics-network
+
+volumes:
+  postgres_data:
+    driver: local
 
 networks:
   rf-analytics-network:

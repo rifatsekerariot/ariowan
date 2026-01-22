@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.git
+.gitignore
+README.md
+*.md
+.vscode
+.idea
+*.log
+data/
+*.db
+*.sqlite
+.DS_Store
+frontend/
+nginx/

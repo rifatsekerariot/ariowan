@@ -1,0 +1,37 @@
+{
+  "deviceInfo": {
+    "devEui": "0004a30b001e8a9b",
+    "deviceName": "Test Device",
+    "applicationId": "12345678-1234-1234-1234-123456789012",
+    "applicationName": "Test Application"
+  },
+  "rxInfo": [
+    {
+      "gatewayId": "eui-1234567890abcdef",
+      "rssi": -85,
+      "snr": 8.5,
+      "time": "2024-01-15T10:30:00.000Z",
+      "location": {
+        "latitude": 40.7128,
+        "longitude": -74.0060
+      }
+    },
+    {
+      "gatewayId": "eui-abcdef1234567890",
+      "rssi": -92,
+      "snr": 6.2,
+      "time": "2024-01-15T10:30:00.100Z"
+    }
+  ],
+  "txInfo": {
+    "frequency": 868100000,
+    "dataRate": {
+      "modulation": "LORA",
+      "bandwidth": 125,
+      "spreadFactor": 7
+    }
+  },
+  "adr": true,
+  "fCnt": 1234,
+  "fPort": 1
+}

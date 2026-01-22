@@ -1,0 +1,17 @@
+# Example override file for local development
+# Copy this to docker-compose.override.yml and customize
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: dev_password
+
+  backend:
+    environment:
+      LOG_LEVEL: debug
+      NODE_ENV: development
+    volumes:
+      - ./src:/app/src:ro
+      - ./database:/app/database:ro

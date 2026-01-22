@@ -1,17 +1,19 @@
 {
   "name": "chp",
   "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
+  "description": "RF Analytics Platform Backend",
+  "main": "src/app.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node src/app.js",
+    "dev": "node src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1"
   }
 }
