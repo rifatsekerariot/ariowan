@@ -3,6 +3,8 @@ import { Routes, Route, useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
 import GatewayDetail from './GatewayDetail.jsx'
 import DeviceOverview from './DeviceOverview.jsx'
+import DeviceDetail from './DeviceDetail.jsx'
+import Navigation from './Navigation.jsx'
 
 function GatewayOverview() {
   const navigate = useNavigate()
@@ -212,11 +214,16 @@ function GatewayOverview() {
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<GatewayOverview />} />
-      <Route path="/gateway/:gatewayId" element={<GatewayDetail />} />
-      <Route path="/devices" element={<DeviceOverview />} />
-    </Routes>
+    <>
+      <Navigation />
+      <Routes>
+        <Route path="/" element={<GatewayOverview />} />
+        <Route path="/gateways" element={<GatewayOverview />} />
+        <Route path="/gateway/:gatewayId" element={<GatewayDetail />} />
+        <Route path="/devices" element={<DeviceOverview />} />
+        <Route path="/device/:devEui" element={<DeviceDetail />} />
+      </Routes>
+    </>
   )
 }
 

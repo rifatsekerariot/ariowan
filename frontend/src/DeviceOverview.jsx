@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 function DeviceOverview() {
+  const navigate = useNavigate()
   const [deviceHealth, setDeviceHealth] = useState([])
 
   useEffect(() => {
@@ -37,22 +39,6 @@ function DeviceOverview() {
     return 'black'
   }
 
-  const getDecisionMessage = (rfStatus, connectivityStatus) => {
-    if (connectivityStatus === 'OFFLINE') {
-      return 'Device is not sending uplinks. Battery or hardware issue suspected.'
-    }
-    if (rfStatus === 'CRITICAL') {
-      return 'Device RF quality critical. Immediate action required.'
-    }
-    if (rfStatus === 'HEALTHY' && connectivityStatus === 'ONLINE') {
-      return 'Device is communicating normally.'
-    }
-    if (rfStatus === 'DEGRADED' && connectivityStatus === 'ONLINE') {
-      return 'Device RF quality degraded. Relocation or antenna check recommended.'
-    }
-    return 'Device status unknown.'
-  }
-
   return (
     <div>
       <h1>RF Analytics UI</h1>
@@ -63,17 +49,20 @@ function DeviceOverview() {
           <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '20px' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #333' }}>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>DevEUI</th>
+                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Device EUI</th>
                 <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Avg RF Score</th>
                 <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>RF Status</th>
                 <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Connectivity Status</th>
                 <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Last Seen</th>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Decision</th>
               </tr>
             </thead>
             <tbody>
               {deviceHealth.map((device) => (
-                <tr key={device.devEui} style={{ borderBottom: '1px solid #ddd' }}>
+                <tr 
+                  key={device.devEui} 
+                  style={{ borderBottom: '1px solid #ddd', cursor: 'pointer' }}
+                  onClick={() => navigate(`/device/${device.devEui}`)}
+                >
                   <td style={{ padding: '10px' }}>{device.devEui}</td>
                   <td style={{ padding: '10px' }}>{device.avgScore !== null ? device.avgScore : 'N/A'}</td>
                   <td style={{ padding: '10px', color: getRfStatusColor(device.rfStatus) }}>
@@ -83,7 +72,6 @@ function DeviceOverview() {
                     {device.connectivityStatus}
                   </td>
                   <td style={{ padding: '10px' }}>{device.lastSeen || 'N/A'}</td>
-                  <td style={{ padding: '10px' }}>{getDecisionMessage(device.rfStatus, device.connectivityStatus)}</td>
                 </tr>
               ))}
             </tbody>
