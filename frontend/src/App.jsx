@@ -5,6 +5,9 @@ import GatewayDetail from './GatewayDetail.jsx'
 import DeviceOverview from './DeviceOverview.jsx'
 import DeviceDetail from './DeviceDetail.jsx'
 import Navigation from './Navigation.jsx'
+import StatusBadge from './StatusBadge.jsx'
+import './App.css'
+import './GatewayOverview.css'
 
 function GatewayOverview() {
   const navigate = useNavigate()
@@ -124,11 +127,20 @@ function GatewayOverview() {
     ]
   }
 
-  const getStatusColor = (status) => {
-    if (status === 'HEALTHY') return 'green'
-    if (status === 'DEGRADED') return 'yellow'
-    if (status === 'CRITICAL') return 'red'
-    return 'black'
+
+  const getRelativeTime = (timestamp) => {
+    if (!timestamp) return 'Never'
+    const now = new Date()
+    const time = new Date(timestamp)
+    const diffMs = now - time
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+    
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins} min ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
   }
 
   const getDecisionMessage = (status, stabilityIndex) => {
@@ -146,43 +158,48 @@ function GatewayOverview() {
 
   return (
     <div>
-      <h1>RF Analytics UI</h1>
-      
-      <div>
-        <h2>Gateway Overview</h2>
-        {gatewayHealth.length > 0 ? (
-          <table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '20px' }}>
+      <h2>Gateway Overview</h2>
+      {gatewayHealth.length > 0 ? (
+        <div className="gateway-overview-card">
+          <table className="gateway-table">
             <thead>
-              <tr style={{ borderBottom: '2px solid #333' }}>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Gateway ID</th>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Avg Score</th>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Status</th>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Last Seen</th>
-                <th style={{ padding: '10px', textAlign: 'left', borderBottom: '2px solid #333' }}>Decision</th>
+              <tr>
+                <th>Gateway ID</th>
+                <th>Avg RF Score</th>
+                <th>Status</th>
+                <th>Stability</th>
+                <th>Last Seen</th>
               </tr>
             </thead>
             <tbody>
               {gatewayHealth.map((gateway) => (
                 <tr 
-                  key={gateway.gatewayId} 
-                  style={{ borderBottom: '1px solid #ddd', cursor: 'pointer' }}
+                  key={gateway.gatewayId}
                   onClick={() => navigate(`/gateway/${gateway.gatewayId}`)}
                 >
-                  <td style={{ padding: '10px' }}>{gateway.gatewayId}</td>
-                  <td style={{ padding: '10px' }}>{gateway.avgScore}</td>
-                  <td style={{ padding: '10px', color: getStatusColor(gateway.status) }}>
-                    {gateway.status}
+                  <td>
+                    <span className="gateway-id">{gateway.gatewayId}</span>
                   </td>
-                  <td style={{ padding: '10px' }}>{gateway.lastSeen}</td>
-                  <td style={{ padding: '10px' }}>{getDecisionMessage(gateway.status, gateway.stabilityIndex)}</td>
+                  <td>
+                    <span className="gateway-score">{gateway.avgScore}</span>
+                  </td>
+                  <td>
+                    <StatusBadge status={gateway.status} />
+                  </td>
+                  <td>
+                    <span className="stability-text">{gateway.stabilityIndex}</span>
+                  </td>
+                  <td>
+                    <span className="last-seen">{getRelativeTime(gateway.lastSeen)}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : (
-          <p>No gateway data available</p>
-        )}
-      </div>
+        </div>
+      ) : (
+        <p>No gateway data available</p>
+      )}
 
       {isWaiting ? (
         <p>Waiting for uplink...</p>
@@ -214,16 +231,21 @@ function GatewayOverview() {
 
 function App() {
   return (
-    <>
+    <div className="app-container">
+      <header className="app-header">
+        <h1>RF Analytics Platform</h1>
+      </header>
       <Navigation />
-      <Routes>
-        <Route path="/" element={<GatewayOverview />} />
-        <Route path="/gateways" element={<GatewayOverview />} />
-        <Route path="/gateway/:gatewayId" element={<GatewayDetail />} />
-        <Route path="/devices" element={<DeviceOverview />} />
-        <Route path="/device/:devEui" element={<DeviceDetail />} />
-      </Routes>
-    </>
+      <main className="app-content">
+        <Routes>
+          <Route path="/" element={<GatewayOverview />} />
+          <Route path="/gateways" element={<GatewayOverview />} />
+          <Route path="/gateway/:gatewayId" element={<GatewayDetail />} />
+          <Route path="/devices" element={<DeviceOverview />} />
+          <Route path="/device/:devEui" element={<DeviceDetail />} />
+        </Routes>
+      </main>
+    </div>
   )
 }
 

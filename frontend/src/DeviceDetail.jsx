@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
+import StatusBadge from './StatusBadge.jsx'
+import './DeviceDetail.css'
 
 function DeviceDetail() {
   const { devEui } = useParams()
@@ -28,17 +30,6 @@ function DeviceDetail() {
     fetchDeviceData()
   }, [devEui])
 
-  const getRfStatusColor = (status) => {
-    if (status === 'HEALTHY') return 'green'
-    if (status === 'DEGRADED') return 'yellow'
-    if (status === 'CRITICAL') return 'red'
-    return 'black'
-  }
-
-  const getConnectivityColor = (status) => {
-    if (status === 'OFFLINE') return 'gray'
-    return 'black'
-  }
 
   if (loading) {
     return <div>Loading...</div>
@@ -47,8 +38,8 @@ function DeviceDetail() {
   if (!deviceData) {
     return (
       <div>
+        <button className="back-button" onClick={() => navigate('/devices')}>Back to Device Overview</button>
         <h1>Device not found</h1>
-        <button onClick={() => navigate('/devices')}>Back to Device Overview</button>
       </div>
     )
   }
@@ -94,10 +85,6 @@ function DeviceDetail() {
 
   const barChartOption = {
     animation: false,
-    title: {
-      text: 'Gateway Dependency',
-      left: 'center'
-    },
     tooltip: {
       trigger: 'axis',
       formatter: (params) => {
@@ -125,26 +112,35 @@ function DeviceDetail() {
 
   return (
     <div>
-      <button onClick={() => navigate('/devices')} style={{ marginBottom: '20px' }}>Back to Device Overview</button>
-      <h1>Device Details</h1>
-      <div>
-        <p><strong>Device EUI:</strong> {deviceData.devEui}</p>
-        <p><strong>RF Health Score:</strong> {deviceData.avgScore}</p>
-        <p><strong>RF Status:</strong> <span style={{ color: getRfStatusColor(deviceData.rfStatus) }}>{deviceData.rfStatus}</span></p>
-        <p><strong>Connectivity Status:</strong> <span style={{ color: getConnectivityColor(deviceData.connectivityStatus) }}>{deviceData.connectivityStatus}</span></p>
-        <p><strong>Last Seen:</strong> {deviceData.lastSeen}</p>
+      <button className="back-button" onClick={() => navigate('/devices')}>Back to Device Overview</button>
+      
+      <div className="device-detail-header">
+        <div className="device-detail-header-info">
+          <div className="device-detail-eui">{deviceData.devEui}</div>
+          <div className="device-detail-badges">
+            <StatusBadge status={deviceData.rfStatus} />
+            <StatusBadge status={deviceData.connectivityStatus} />
+          </div>
+        </div>
       </div>
+
       {lastUplinks.length > 0 && (
-        <>
-          <div style={{ marginTop: '20px' }}>
-            <h3>RSSI & SNR Over Time</h3>
-            <ReactECharts option={lineChartOption} style={{ height: '400px', width: '100%' }} />
+        <div className="device-detail-charts">
+          <div className="chart-card">
+            <div className="chart-card-title">RSSI & SNR Over Time</div>
+            <div className="chart-card-info">Signal strength and signal-to-noise ratio trends from recent uplinks.</div>
+            <div className="chart-container">
+              <ReactECharts option={lineChartOption} style={{ height: '100%', width: '100%' }} />
+            </div>
           </div>
-          <div style={{ marginTop: '20px' }}>
-            <h3>Uplink Count per Gateway</h3>
-            <ReactECharts option={barChartOption} style={{ height: '400px', width: '100%' }} />
+          <div className="chart-card">
+            <div className="chart-card-title">Gateway Distribution</div>
+            <div className="chart-card-info">Uplink count per gateway showing device dependency across network.</div>
+            <div className="chart-container">
+              <ReactECharts option={barChartOption} style={{ height: '100%', width: '100%' }} />
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

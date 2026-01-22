@@ -1,0 +1,74 @@
+.device-overview-card {
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+}
+
+.device-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.device-table thead {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.device-table th {
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.device-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.device-table tbody tr:hover {
+  background-color: #fafbfc;
+}
+
+.device-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.device-table tbody tr.device-row--offline {
+  opacity: 0.6;
+}
+
+.device-table tbody tr.device-row--offline:hover {
+  opacity: 0.8;
+  background-color: #fafbfc;
+}
+
+.device-table td {
+  padding: var(--spacing-lg);
+  vertical-align: middle;
+}
+
+.device-eui {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.device-score {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.last-seen {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}

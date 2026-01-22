@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
+import StatusBadge from './StatusBadge.jsx'
+import './GatewayDetail.css'
 
 function GatewayDetail() {
   const { gatewayId } = useParams()
@@ -28,25 +30,6 @@ function GatewayDetail() {
     fetchGatewayData()
   }, [gatewayId])
 
-  const getStatusColor = (status) => {
-    if (status === 'HEALTHY') return 'green'
-    if (status === 'DEGRADED') return 'yellow'
-    if (status === 'CRITICAL') return 'red'
-    return 'black'
-  }
-
-  const getDecisionMessage = (status, stabilityIndex) => {
-    if (status === 'HEALTHY' && stabilityIndex === 'STABLE') {
-      return 'Gateway operating within normal RF conditions.'
-    }
-    if (status === 'CRITICAL' || stabilityIndex === 'VERY_UNSTABLE') {
-      return 'Gateway RF quality is critical. Immediate inspection required.'
-    }
-    if (status === 'DEGRADED' || stabilityIndex === 'UNSTABLE') {
-      return 'Gateway shows RF degradation. Antenna or interference check recommended.'
-    }
-    return 'Gateway operating within normal RF conditions.'
-  }
 
   if (loading) {
     return <div>Loading...</div>
@@ -55,8 +38,8 @@ function GatewayDetail() {
   if (!gatewayData) {
     return (
       <div>
+        <button className="back-button" onClick={() => navigate('/gateways')}>Back to Overview</button>
         <h1>Gateway not found</h1>
-        <button onClick={() => navigate('/')}>Back to Overview</button>
       </div>
     )
   }
@@ -86,17 +69,29 @@ function GatewayDetail() {
 
   return (
     <div>
-      <button onClick={() => navigate('/')} style={{ marginBottom: '20px' }}>Back to Overview</button>
-      <h1>Gateway Details</h1>
-      <div>
-        <p><strong>Gateway ID:</strong> {gatewayData.gatewayId}</p>
-        <p><strong>Health Score:</strong> {gatewayData.healthScore}</p>
-        <p><strong>Status:</strong> <span style={{ color: getStatusColor(gatewayData.status) }}>{gatewayData.status}</span></p>
-        <p><strong>Stability Index:</strong> {gatewayData.stabilityIndex}</p>
-        <p><strong>Decision:</strong> {getDecisionMessage(gatewayData.status, gatewayData.stabilityIndex)}</p>
+      <button className="back-button" onClick={() => navigate('/gateways')}>Back to Overview</button>
+      
+      <div className="gateway-detail-header">
+        <div className="gateway-detail-header-info">
+          <div className="gateway-detail-id">{gatewayData.gatewayId}</div>
+          <div className="gateway-detail-status">
+            <StatusBadge status={gatewayData.status} />
+          </div>
+        </div>
+        <div>
+          <div className="gateway-detail-score">{gatewayData.healthScore}</div>
+        </div>
       </div>
+
       {gatewayData.uplinks.length > 0 && (
-        <ReactECharts option={chartOption} style={{ height: '400px', width: '100%', marginTop: '20px' }} />
+        <div className="gateway-detail-charts">
+          <div className="chart-card">
+            <div className="chart-card-title">RSSI & SNR Over Time</div>
+            <div className="chart-container">
+              <ReactECharts option={chartOption} style={{ height: '100%', width: '100%' }} />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

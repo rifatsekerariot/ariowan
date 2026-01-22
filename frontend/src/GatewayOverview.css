@@ -1,0 +1,70 @@
+.gateway-overview-card {
+  background-color: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+}
+
+.gateway-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gateway-table thead {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.gateway-table th {
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.gateway-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.gateway-table tbody tr:hover {
+  background-color: #fafbfc;
+}
+
+.gateway-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.gateway-table td {
+  padding: var(--spacing-lg);
+  vertical-align: middle;
+}
+
+.gateway-id {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.gateway-score {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.stability-text {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.last-seen {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
