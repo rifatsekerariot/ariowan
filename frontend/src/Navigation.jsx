@@ -4,8 +4,10 @@ import './Navigation.css'
 function Navigation() {
   return (
     <nav className="top-navigation">
-      <Link to="/gateways" className="nav-link">Gateways</Link>
-      <Link to="/devices" className="nav-link">Devices</Link>
+      <div className="nav-wrapper">
+        <Link to="/gateways" className="nav-link">Gateways</Link>
+        <Link to="/devices" className="nav-link">Devices</Link>
+      </div>
     </nav>
   )
 }

@@ -59,50 +59,69 @@ function DeviceOverview() {
   ]
 
   return (
-    <div>
-      <h2>Device Overview</h2>
-      <SummaryCards stats={summaryStats} />
+    <div className="page-wrapper">
+      <div className="page-section">
+        <h2>Device Overview</h2>
+        <SummaryCards stats={summaryStats} />
+      </div>
       {deviceHealth.length > 0 ? (
-        <div className="device-overview-card">
-          <table className="device-table">
-            <thead>
-              <tr>
-                <th>Device EUI</th>
-                <th>RF Score</th>
-                <th>RF Status</th>
-                <th>Connectivity</th>
-                <th>Last Seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deviceHealth.map((device) => (
-                <tr 
-                  key={device.devEui}
-                  className={device.connectivityStatus === 'OFFLINE' ? 'device-row--offline' : ''}
-                  onClick={() => navigate(`/device/${device.devEui}`)}
-                >
-                  <td>
-                    <span className="device-eui">{device.devEui}</span>
-                  </td>
-                  <td>
-                    <span className="device-score">{device.avgScore !== null ? device.avgScore : 'N/A'}</span>
-                  </td>
-                  <td>
-                    <StatusBadge status={device.rfStatus} />
-                  </td>
-                  <td>
-                    <StatusBadge status={device.connectivityStatus} />
-                  </td>
-                  <td>
-                    <span className="last-seen">{getRelativeTime(device.lastSeen)}</span>
-                  </td>
+        <div className="page-section">
+          <div className="device-overview-card">
+            <table className="device-table">
+              <thead>
+                <tr>
+                  <th>Device EUI</th>
+                  <th>RF Score</th>
+                  <th>RF Status</th>
+                  <th>Connectivity</th>
+                  <th>Last Seen</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {deviceHealth.map((device) => {
+                  const rowClass = device.connectivityStatus === 'OFFLINE' 
+                    ? 'device-row--offline' 
+                    : `device-row--${device.rfStatus.toLowerCase()}`
+                  return (
+                    <tr 
+                      key={device.devEui}
+                      className={rowClass}
+                      onClick={() => navigate(`/device/${device.devEui}`)}
+                    >
+                      <td>
+                        <span className="device-eui">{device.devEui}</span>
+                      </td>
+                      <td>
+                        <div className="device-score">
+                          {device.avgScore !== null ? (
+                            <span className={`device-score-value device-score--${device.rfStatus.toLowerCase()}`}>
+                              {device.avgScore}
+                            </span>
+                          ) : (
+                            <span className="device-score-value">N/A</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <StatusBadge status={device.rfStatus} />
+                      </td>
+                      <td>
+                        <StatusBadge status={device.connectivityStatus} />
+                      </td>
+                      <td>
+                        <span className="last-seen">{getRelativeTime(device.lastSeen)}</span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
-        <p>No device data available</p>
+        <div className="page-section">
+          <p>No device data available</p>
+        </div>
       )}
     </div>
   )

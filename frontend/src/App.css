@@ -6,16 +6,22 @@
 
 .app-header {
   background-color: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
   padding: var(--spacing-lg) var(--spacing-xl);
+}
+
+.app-header-wrapper {
+  max-width: var(--max-width);
+  width: 100%;
+  margin: 0 auto;
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   letter-spacing: -0.02em;
+  font-family: var(--font-system);
 }
 
 .app-content {
@@ -26,6 +32,13 @@
   padding: var(--spacing-2xl) var(--spacing-xl);
 }
 
-.app-content > * + * {
-  margin-top: var(--spacing-2xl);
+.page-wrapper {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-2xl);
+  width: 100%;
+}
+
+.page-section {
+  width: 100%;
 }

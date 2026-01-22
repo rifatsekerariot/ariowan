@@ -16,7 +16,7 @@
 
 .device-detail-eui {
   font-family: var(--font-mono);
-  font-size: 1.125rem;
+  font-size: var(--font-size-2xl);
   color: var(--text-primary);
   margin-bottom: var(--spacing-lg);
   letter-spacing: 0.01em;
@@ -47,18 +47,20 @@
 }
 
 .chart-card-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
   letter-spacing: -0.01em;
+  font-family: var(--font-system);
 }
 
 .chart-card-info {
-  font-size: 0.75rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   margin-bottom: var(--spacing-lg);
   line-height: 1.5;
+  font-family: var(--font-system);
 }
 
 .chart-container {
@@ -67,19 +69,19 @@
 }
 
 .back-button {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background-color: transparent;
+  border: none;
   border-radius: 6px;
   padding: var(--spacing-xs) var(--spacing-md);
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-base);
   color: var(--text-secondary);
   margin-bottom: var(--spacing-xl);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-system);
 }
 
 .back-button:hover {
-  background-color: #273549;
+  background-color: var(--bg-hover);
   color: var(--text-primary);
-  border-color: var(--text-secondary);
 }

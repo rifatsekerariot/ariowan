@@ -106,25 +106,112 @@ function GatewayOverview() {
 
   const chartOption = {
     animation: false,
+    grid: {
+      left: '60px',
+      right: '40px',
+      top: '50px',
+      bottom: '60px',
+      containLabel: false
+    },
     xAxis: {
       type: 'category',
-      data: chartData.map(item => item.timestamp)
+      data: chartData.map(item => item.timestamp),
+      name: 'Time',
+      nameLocation: 'middle',
+      nameGap: 30,
+      nameTextStyle: {
+        fontSize: 12,
+        color: '#94a3b8'
+      },
+      axisLabel: {
+        fontSize: 11,
+        color: '#94a3b8',
+        rotate: 0
+      },
+      axisLine: {
+        lineStyle: {
+          color: '#334155'
+        }
+      },
+      splitLine: {
+        show: false
+      }
     },
     yAxis: {
-      type: 'value'
+      type: 'value',
+      name: 'Value',
+      nameLocation: 'middle',
+      nameGap: 50,
+      nameTextStyle: {
+        fontSize: 12,
+        color: '#94a3b8'
+      },
+      axisLabel: {
+        fontSize: 11,
+        color: '#94a3b8'
+      },
+      axisLine: {
+        lineStyle: {
+          color: '#334155'
+        }
+      },
+      splitLine: {
+        show: true,
+        lineStyle: {
+          color: '#334155',
+          type: 'dashed',
+          opacity: 0.3
+        }
+      }
     },
     series: [
       {
         name: 'RSSI',
         type: 'line',
-        data: chartData.map(item => item.rssi)
+        data: chartData.map(item => item.rssi),
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: {
+          width: 2
+        }
       },
       {
         name: 'SNR',
         type: 'line',
-        data: chartData.map(item => item.snr)
+        data: chartData.map(item => item.snr),
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: {
+          width: 2
+        }
       }
-    ]
+    ],
+    legend: {
+      show: true,
+      top: 10,
+      textStyle: {
+        fontSize: 12,
+        color: '#f1f5f9'
+      },
+      itemGap: 20
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#1e293b',
+      borderColor: '#334155',
+      textStyle: {
+        color: '#f1f5f9',
+        fontSize: 12
+      },
+      axisPointer: {
+        lineStyle: {
+          color: '#94a3b8',
+          opacity: 0.5
+        }
+      }
+    }
   }
 
 
@@ -157,54 +244,63 @@ function GatewayOverview() {
   }
 
   return (
-    <div>
-      <h2>Gateway Overview</h2>
-      {gatewayHealth.length > 0 ? (
-        <div className="gateway-overview-card">
-          <table className="gateway-table">
-            <thead>
-              <tr>
-                <th>Gateway ID</th>
-                <th>Avg RF Score</th>
-                <th>Status</th>
-                <th>Stability</th>
-                <th>Last Seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gatewayHealth.map((gateway) => (
-                <tr 
-                  key={gateway.gatewayId}
-                  onClick={() => navigate(`/gateway/${gateway.gatewayId}`)}
-                >
-                  <td>
-                    <span className="gateway-id">{gateway.gatewayId}</span>
-                  </td>
-                  <td>
-                    <span className="gateway-score">{gateway.avgScore}</span>
-                  </td>
-                  <td>
-                    <StatusBadge status={gateway.status} />
-                  </td>
-                  <td>
-                    <span className="stability-text">{gateway.stabilityIndex}</span>
-                  </td>
-                  <td>
-                    <span className="last-seen">{getRelativeTime(gateway.lastSeen)}</span>
-                  </td>
+    <div className="page-wrapper">
+      <div className="page-section">
+        <h2>Gateway Overview</h2>
+        {gatewayHealth.length > 0 ? (
+          <div className="gateway-overview-card">
+            <table className="gateway-table">
+              <thead>
+                <tr>
+                  <th>Gateway ID</th>
+                  <th>Avg RF Score</th>
+                  <th>Status</th>
+                  <th>Stability</th>
+                  <th>Last Seen</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p>No gateway data available</p>
-      )}
+              </thead>
+              <tbody>
+                {gatewayHealth.map((gateway) => (
+                  <tr 
+                    key={gateway.gatewayId}
+                    className={`gateway-row--${gateway.status.toLowerCase()}`}
+                    onClick={() => navigate(`/gateway/${gateway.gatewayId}`)}
+                  >
+                    <td>
+                      <span className="gateway-id">{gateway.gatewayId}</span>
+                    </td>
+                    <td>
+                      <div className="gateway-score">
+                        <span className={`gateway-score-value gateway-score--${gateway.status.toLowerCase()}`}>
+                          {gateway.avgScore}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <StatusBadge status={gateway.status} />
+                    </td>
+                    <td>
+                      <span className="stability-text">{gateway.stabilityIndex}</span>
+                    </td>
+                    <td>
+                      <span className="last-seen">{getRelativeTime(gateway.lastSeen)}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p>No gateway data available</p>
+        )}
+      </div>
 
       {isWaiting ? (
-        <p>Waiting for uplink...</p>
+        <div className="page-section">
+          <p>Waiting for uplink...</p>
+        </div>
       ) : (
-        <div>
+        <div className="page-section">
           <p>Device EUI: {uplinkData?.devEui}</p>
           <p>Gateway ID: {uplinkData?.gatewayId}</p>
           <p>RSSI: {uplinkData?.rssi}</p>
@@ -213,17 +309,24 @@ function GatewayOverview() {
         </div>
       )}
       {linkHealthScore !== null && (
-        <div>
-          <h2>Link Health Score: {linkHealthScore}</h2>
+        <div className="page-section">
+          <div className="health-score-display">
+            <div className="health-score-label">Link Health Score</div>
+            <div className={`health-score-value health-score--${linkHealthScore >= 80 ? 'healthy' : linkHealthScore >= 50 ? 'degraded' : 'critical'}`}>
+              {linkHealthScore}
+            </div>
+          </div>
         </div>
       )}
       {lastThreeScores.length > 0 && (
-        <div>
+        <div className="page-section">
           <h2>Status: {linkStatus}</h2>
         </div>
       )}
       {chartData.length > 0 && (
-        <ReactECharts option={chartOption} style={{ height: '400px', width: '100%' }} />
+        <div className="page-section">
+          <ReactECharts option={chartOption} style={{ height: '400px', width: '100%' }} />
+        </div>
       )}
     </div>
   )
@@ -233,7 +336,9 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>RF Analytics Platform</h1>
+        <div className="app-header-wrapper">
+          <h1>RF Analytics Platform</h1>
+        </div>
       </header>
       <Navigation />
       <main className="app-content">
