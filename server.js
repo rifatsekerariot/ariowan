@@ -104,6 +104,10 @@ app.get('/api/last-uplink', (req, res) => {
 app.get('/api/gateways/health', (req, res) => {
   const gatewayHealth = [];
   
+  // Count total gateways tracked
+  const totalGateways = Object.keys(gatewayUplinks).length;
+  console.log(`Gateways tracked: ${totalGateways}`);
+  
   for (const gatewayId in gatewayUplinks) {
     const uplinks = gatewayUplinks[gatewayId];
     
@@ -198,122 +202,141 @@ app.get('/api/gateways/:gatewayId', (req, res) => {
 
 // ChirpStack HTTP integration endpoint
 app.post('/', (req, res) => {
-  const eventType = req.query.event || 'unknown';
+  // Normalize event value: handle both string and array cases
+  let eventType = 'unknown';
+  const eventQuery = req.query.event;
+  
+  if (Array.isArray(eventQuery)) {
+    // If array, select the value that is not "{{event}}"
+    const resolvedEvent = eventQuery.find(val => val !== '{{event}}');
+    eventType = resolvedEvent || 'unknown';
+  } else if (typeof eventQuery === 'string') {
+    eventType = eventQuery;
+  }
+  
   const rawBodySize = req.get('content-length') || '0';
   
-  console.log('Event type:', eventType);
+  console.log('Event type (resolved):', eventType);
   console.log('Raw request body size:', rawBodySize, 'bytes');
   
   if (eventType === 'up') {
     const payload = req.body;
+    
+    // Extract deviceInfo.devEui
     const devEui = payload.deviceInfo?.devEui;
-    const gatewayId = payload.rxInfo?.[0]?.gatewayId;
-    const rssi = payload.rxInfo?.[0]?.rssi;
-    const snr = payload.rxInfo?.[0]?.snr;
     
-    console.log(`devEui: ${devEui}, gatewayId: ${gatewayId}, rssi: ${rssi}, snr: ${snr}`);
+    // Extract rxInfo array
+    const rxInfo = payload.rxInfo || [];
     
-    if (gatewayId && devEui) {
-      // Calculate RF score
-      const rfScore = calculateRfScore(snr, rssi);
-      const timestamp = new Date().toISOString();
-      const timestampMs = new Date(timestamp).getTime();
+    console.log(`devEui: ${devEui}`);
+    console.log(`rxInfo count: ${rxInfo.length}`);
+    
+    // Process each rxInfo item
+    rxInfo.forEach((rxItem, index) => {
+      const gatewayId = rxItem?.gatewayId;
+      const rssi = rxItem?.rssi;
+      const snr = rxItem?.snr;
+      const time = rxItem?.time || new Date().toISOString();
       
-      // Create uplink record
-      const uplinkRecord = {
-        timestamp,
-        devEui,
-        gatewayId,
-        rssi,
-        snr,
-        rfScore,
-        isBest: false
-      };
+      console.log(`rxInfo[${index}]: gatewayId=${gatewayId}, rssi=${rssi}, snr=${snr}, time=${time}`);
       
-      // Track by devEui for best gateway comparison
-      if (!deviceUplinks[devEui]) {
-        deviceUplinks[devEui] = [];
-      }
-      
-      // Find all recent uplinks from same device across all gateways
-      const recentUplinks = [];
-      for (const gId in gatewayUplinks) {
-        const uplinks = gatewayUplinks[gId];
-        uplinks.forEach(uplink => {
-          if (uplink.devEui === devEui) {
-            const uTime = new Date(uplink.timestamp).getTime();
-            if (Math.abs(timestampMs - uTime) <= UPLINK_COMPARISON_WINDOW_MS) {
-              recentUplinks.push({
-                gatewayId: gId,
-                timestamp: uplink.timestamp,
-                rfScore: uplink.rfScore,
-                uplinkRef: uplink
-              });
+      if (gatewayId && devEui) {
+        // Compute rfScore using existing rules
+        const rfScore = calculateRfScore(snr, rssi);
+        // Use time from rxInfo if available, otherwise use now
+        const timestamp = time || new Date().toISOString();
+        const timestampMs = new Date(timestamp).getTime();
+        
+        // Create uplink record with computed rfScore
+        const uplinkRecord = {
+          timestamp,
+          devEui,
+          gatewayId,
+          rssi,
+          snr,
+          rfScore,
+          isBest: false
+        };
+        
+        // Track by devEui for best gateway comparison
+        if (!deviceUplinks[devEui]) {
+          deviceUplinks[devEui] = [];
+        }
+        
+        // Find all recent uplinks from same device across all gateways
+        const recentUplinks = [];
+        for (const gId in gatewayUplinks) {
+          const uplinks = gatewayUplinks[gId];
+          uplinks.forEach(uplink => {
+            if (uplink.devEui === devEui) {
+              const uTime = new Date(uplink.timestamp).getTime();
+              if (Math.abs(timestampMs - uTime) <= UPLINK_COMPARISON_WINDOW_MS) {
+                recentUplinks.push({
+                  gatewayId: gId,
+                  timestamp: uplink.timestamp,
+                  rfScore: uplink.rfScore,
+                  uplinkRef: uplink
+                });
+              }
             }
+          });
+        }
+        
+        // Add current uplink to comparison set
+        recentUplinks.push({
+          gatewayId,
+          timestamp,
+          rfScore,
+          uplinkRef: uplinkRecord
+        });
+        
+        // Find best rfScore in comparison set
+        const bestRfScore = Math.max(...recentUplinks.map(u => u.rfScore));
+        
+        // Mark the best uplink(s) and unmark others
+        recentUplinks.forEach(u => {
+          if (u.rfScore === bestRfScore) {
+            u.uplinkRef.isBest = true;
+          } else if (u.uplinkRef.isBest) {
+            u.uplinkRef.isBest = false;
           }
         });
-      }
-      
-      // Add current uplink to comparison set
-      recentUplinks.push({
-        gatewayId,
-        timestamp,
-        rfScore,
-        uplinkRef: uplinkRecord
-      });
-      
-      // Find best rfScore in comparison set
-      const bestRfScore = Math.max(...recentUplinks.map(u => u.rfScore));
-      
-      // Mark the best uplink(s) and unmark others
-      recentUplinks.forEach(u => {
-        if (u.rfScore === bestRfScore) {
-          u.uplinkRef.isBest = true;
-        } else if (u.uplinkRef.isBest) {
-          u.uplinkRef.isBest = false;
+        
+        // Add to device tracking (keep last 100 per device)
+        if (!deviceUplinks[devEui]) {
+          deviceUplinks[devEui] = [];
         }
-      });
-      
-      // Add to device tracking (keep last 100 per device)
-      if (!deviceUplinks[devEui]) {
-        deviceUplinks[devEui] = [];
+        deviceUplinks[devEui].push({ timestamp, gatewayId, rfScore, isBest: uplinkRecord.isBest });
+        if (deviceUplinks[devEui].length > 100) {
+          deviceUplinks[devEui] = deviceUplinks[devEui].slice(-100);
+        }
+        
+        // Store data in gateway buffer (by gatewayId)
+        if (!gatewayUplinks[gatewayId]) {
+          gatewayUplinks[gatewayId] = [];
+        }
+        gatewayUplinks[gatewayId].push(uplinkRecord);
+        if (gatewayUplinks[gatewayId].length > 50) {
+          gatewayUplinks[gatewayId] = gatewayUplinks[gatewayId].slice(-50);
+        }
+        
+        // Store data in device buffer (by devEui)
+        if (!deviceUplinksHistory[devEui]) {
+          deviceUplinksHistory[devEui] = [];
+        }
+        const deviceUplinkRecord = {
+          timestamp,
+          gatewayId,
+          rssi,
+          snr,
+          rfScore
+        };
+        deviceUplinksHistory[devEui].push(deviceUplinkRecord);
+        if (deviceUplinksHistory[devEui].length > 50) {
+          deviceUplinksHistory[devEui] = deviceUplinksHistory[devEui].slice(-50);
+        }
       }
-      deviceUplinks[devEui].push({ timestamp, gatewayId, rfScore, isBest: uplinkRecord.isBest });
-      if (deviceUplinks[devEui].length > 100) {
-        deviceUplinks[devEui] = deviceUplinks[devEui].slice(-100);
-      }
-      
-      // Initialize gateway array if it doesn't exist
-      if (!gatewayUplinks[gatewayId]) {
-        gatewayUplinks[gatewayId] = [];
-      }
-      
-      // Add uplink and keep only last 50
-      gatewayUplinks[gatewayId].push(uplinkRecord);
-      if (gatewayUplinks[gatewayId].length > 50) {
-        gatewayUplinks[gatewayId] = gatewayUplinks[gatewayId].slice(-50);
-      }
-      
-      // Store per-device uplink history
-      if (!deviceUplinksHistory[devEui]) {
-        deviceUplinksHistory[devEui] = [];
-      }
-      
-      // Create device uplink record (same structure as gateway uplink)
-      const deviceUplinkRecord = {
-        timestamp,
-        gatewayId,
-        rssi,
-        snr,
-        rfScore
-      };
-      
-      // Add to device history and keep only last 50
-      deviceUplinksHistory[devEui].push(deviceUplinkRecord);
-      if (deviceUplinksHistory[devEui].length > 50) {
-        deviceUplinksHistory[devEui] = deviceUplinksHistory[devEui].slice(-50);
-      }
-    }
+    });
   }
   
   res.status(200).send();
@@ -322,6 +345,10 @@ app.post('/', (req, res) => {
 // Get devices health endpoint
 app.get('/api/devices/health', (req, res) => {
   const deviceHealth = [];
+  
+  // Count total devices tracked
+  const totalDevices = Object.keys(deviceUplinksHistory).length;
+  console.log(`Devices tracked: ${totalDevices}`);
   
   for (const devEui in deviceUplinksHistory) {
     const uplinks = deviceUplinksHistory[devEui];
