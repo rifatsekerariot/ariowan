@@ -2,17 +2,16 @@
 -- PostgreSQL 14+ compatible
 --
 -- Execution order:
--- 1. CREATE TABLE statements (no dependencies)
+-- 1. CREATE TABLE statements
 -- 2. CREATE INDEX statements (after all tables)
--- 3. CREATE FUNCTION statements (trigger functions)
--- 4. CREATE TRIGGER statements (after functions)
--- 5. CREATE VIEW statements (optional, after all dependencies)
+-- 3. CREATE FUNCTION statements
+-- 4. CREATE TRIGGER statements
+-- 5. CREATE VIEW statements
 
 -- ============================================================================
 -- TABLES
 -- ============================================================================
 
--- Gateways table: Stores gateway metadata and tracking information
 CREATE TABLE IF NOT EXISTS gateways (
     gateway_id VARCHAR(255) PRIMARY KEY,
     first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -21,7 +20,6 @@ CREATE TABLE IF NOT EXISTS gateways (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Devices table: Stores device metadata and tracking information
 CREATE TABLE IF NOT EXISTS devices (
     dev_eui VARCHAR(255) PRIMARY KEY,
     first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -30,8 +28,6 @@ CREATE TABLE IF NOT EXISTS devices (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Uplinks table: Core table storing all uplink events with computed metrics
--- This is the primary table for analytics and reporting
 CREATE TABLE IF NOT EXISTS uplinks (
     id BIGSERIAL PRIMARY KEY,
     dev_eui VARCHAR(255) NOT NULL,
@@ -50,33 +46,24 @@ CREATE TABLE IF NOT EXISTS uplinks (
 -- INDEXES
 -- ============================================================================
 
--- Gateway indexes
 CREATE INDEX IF NOT EXISTS idx_gateways_last_seen ON gateways(last_seen);
 
--- Device indexes
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON devices(last_seen);
 
--- Uplink indexes for common query patterns
-CREATE INDEX IF NOT EXISTS idx_uplinks_dev_eui_timestamp 
-    ON uplinks(dev_eui, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_uplinks_dev_eui_timestamp ON uplinks(dev_eui, timestamp DESC);
 
-CREATE INDEX IF NOT EXISTS idx_uplinks_gateway_id_timestamp 
-    ON uplinks(gateway_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_uplinks_gateway_id_timestamp ON uplinks(gateway_id, timestamp DESC);
 
-CREATE INDEX IF NOT EXISTS idx_uplinks_timestamp 
-    ON uplinks(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_uplinks_timestamp ON uplinks(timestamp DESC);
 
-CREATE INDEX IF NOT EXISTS idx_uplinks_is_best 
-    ON uplinks(is_best) WHERE is_best = TRUE;
+CREATE INDEX IF NOT EXISTS idx_uplinks_is_best ON uplinks(is_best) WHERE is_best = TRUE;
 
-CREATE INDEX IF NOT EXISTS idx_uplinks_dev_eui_gateway_timestamp 
-    ON uplinks(dev_eui, gateway_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_uplinks_dev_eui_gateway_timestamp ON uplinks(dev_eui, gateway_id, timestamp DESC);
 
 -- ============================================================================
 -- TRIGGER FUNCTIONS
 -- ============================================================================
 
--- Function to update gateway last_seen timestamp
 CREATE OR REPLACE FUNCTION update_gateway_last_seen()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -88,7 +75,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to update device last_seen timestamp
 CREATE OR REPLACE FUNCTION update_device_last_seen()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -104,23 +90,22 @@ $$ LANGUAGE plpgsql;
 -- TRIGGERS
 -- ============================================================================
 
--- Trigger to auto-update gateway last_seen when uplink is inserted
+DROP TRIGGER IF EXISTS trigger_update_gateway_last_seen ON uplinks;
 CREATE TRIGGER trigger_update_gateway_last_seen
     AFTER INSERT ON uplinks
     FOR EACH ROW
     EXECUTE FUNCTION update_gateway_last_seen();
 
--- Trigger to auto-update device last_seen when uplink is inserted
+DROP TRIGGER IF EXISTS trigger_update_device_last_seen ON uplinks;
 CREATE TRIGGER trigger_update_device_last_seen
     AFTER INSERT ON uplinks
     FOR EACH ROW
     EXECUTE FUNCTION update_device_last_seen();
 
 -- ============================================================================
--- VIEWS (Optional, for convenience)
+-- VIEWS
 -- ============================================================================
 
--- View: Gateway Health Summary
 CREATE OR REPLACE VIEW gateway_health_summary AS
 SELECT 
     g.gateway_id,
@@ -137,7 +122,6 @@ LEFT JOIN uplinks u ON g.gateway_id = u.gateway_id
 WHERE u.timestamp >= NOW() - INTERVAL '1 hour'
 GROUP BY g.gateway_id;
 
--- View: Device Health Summary
 CREATE OR REPLACE VIEW device_health_summary AS
 SELECT 
     d.dev_eui,
