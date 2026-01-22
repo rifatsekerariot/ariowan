@@ -1,5 +1,4 @@
 const express = require('express');
-const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 8090;
@@ -70,13 +69,6 @@ function calculateUplinkContinuity(lastSeenTimestamp) {
 }
 
 // Middleware
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow localhost:3001 and all docker network origins
-    callback(null, true);
-  },
-  methods: ['GET']
-}));
 app.use(express.json());
 
 // Health check endpoint

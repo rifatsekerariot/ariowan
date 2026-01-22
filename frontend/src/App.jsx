@@ -25,7 +25,7 @@ function GatewayOverview() {
   useEffect(() => {
     const fetchUplink = async () => {
       try {
-        const response = await fetch('http://localhost:8090/api/last-uplink')
+        const response = await fetch('/api/last-uplink')
         
         if (response.status === 200) {
           const data = await response.json()
@@ -71,7 +71,7 @@ function GatewayOverview() {
   useEffect(() => {
     const fetchGatewayHealth = async () => {
       try {
-        const response = await fetch('http://localhost:8090/api/gateways/health')
+        const response = await fetch('/api/gateways/health')
         if (response.ok) {
           const data = await response.json()
           setGatewayHealth(data)

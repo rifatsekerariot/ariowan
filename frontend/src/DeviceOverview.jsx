@@ -6,7 +6,7 @@ function DeviceOverview() {
   useEffect(() => {
     const fetchDeviceHealth = async () => {
       try {
-        const response = await fetch('http://localhost:8090/api/devices/health')
+        const response = await fetch('/api/devices/health')
         if (response.ok) {
           const data = await response.json()
           setDeviceHealth(data)

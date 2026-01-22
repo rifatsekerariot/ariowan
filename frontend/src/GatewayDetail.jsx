@@ -11,7 +11,7 @@ function GatewayDetail() {
   useEffect(() => {
     const fetchGatewayData = async () => {
       try {
-        const response = await fetch(`http://localhost:8090/api/gateways/${gatewayId}`)
+        const response = await fetch(`/api/gateways/${gatewayId}`)
         if (response.ok) {
           const data = await response.json()
           setGatewayData(data)
