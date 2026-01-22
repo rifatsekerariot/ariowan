@@ -40,12 +40,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// 404 handler
-app.use((req, res) => {
-  logger.warn('Route not found', { path: req.path, method: req.method });
-  res.status(404).json({ error: 'Route not found' });
-});
-
 let server = null;
 
 // Initialize database on startup
@@ -91,6 +85,12 @@ db.initializeDatabase()
     // Audit routes to ensure they meet requirements
     const routes = routeTracker.getRoutes();
     auditRoutes(routes, logger);
+    
+    // 404 handler - must be after all routes are registered
+    app.use((req, res) => {
+      logger.warn('Route not found', { path: req.path, method: req.method });
+      res.status(404).json({ error: 'Route not found' });
+    });
     
     // Start server
     server = app.listen(PORT, () => {
