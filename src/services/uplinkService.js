@@ -49,7 +49,8 @@ async function processUplink(payload) {
     rxInfoCount: rxInfo.length,
   });
   
-  // Process each rxInfo item (multiple gateways can receive the same uplink)
+  // Extract and validate all rxInfo entries first
+  const validRxInfo = [];
   for (let i = 0; i < rxInfo.length; i++) {
     const rxItem = rxInfo[i];
     
@@ -61,11 +62,9 @@ async function processUplink(payload) {
       continue;
     }
     
-    // Extract required fields
     const gatewayId = rxItem.gatewayId;
     const rssi = rxItem.rssi;
     const snr = rxItem.snr;
-    const time = rxItem.time;
     
     // Validate required fields
     if (!gatewayId || typeof gatewayId !== 'string') {
@@ -96,6 +95,53 @@ async function processUplink(payload) {
       });
       continue;
     }
+    
+    validRxInfo.push({ gatewayId, rssi, snr, time: rxItem.time, index: i });
+  }
+  
+  if (validRxInfo.length === 0) {
+    logger.warn('No valid rxInfo entries found', { devEui });
+    return;
+  }
+  
+  // Compute multi-gateway RF quality metrics
+  // Best is defined as highest SNR
+  const gatewayCount = validRxInfo.length;
+  const bestEntry = validRxInfo.reduce((best, current) => {
+    return current.snr > best.snr ? current : best;
+  });
+  const bestRssi = bestEntry.rssi;
+  const bestSnr = bestEntry.snr;
+  
+  logger.debug('Computed multi-gateway metrics', {
+    devEui,
+    gatewayCount,
+    bestRssi,
+    bestSnr,
+    bestGatewayId: bestEntry.gatewayId,
+  });
+  
+  // Process each valid rxInfo item (multiple gateways can receive the same uplink)
+  for (let i = 0; i < validRxInfo.length; i++) {
+    const rxItem = validRxInfo[i];
+    const rxItem = rxInfo[i];
+    
+    if (!rxItem || typeof rxItem !== 'object') {
+      logger.warn('Invalid rxInfo item: not an object', { 
+        devEui, 
+        index: i,
+      });
+      continue;
+    }
+    
+    // Extract fields (already validated)
+    const gatewayId = rxItem.gatewayId;
+    const rssi = rxItem.rssi;
+    const snr = rxItem.snr;
+    const time = rxItem.time;
+    
+    // Determine if this is the best gateway (highest SNR)
+    const isBest = (snr === bestSnr && gatewayId === bestEntry.gatewayId);
     
     // Extract timestamp: use rxInfo[].time if available, otherwise current time
     let timestamp;
@@ -137,7 +183,19 @@ async function processUplink(payload) {
     const rfScore = calculateRfScore(snr, rssi);
     
     // Store raw data in database (transaction ensures data integrity)
-    await storeUplink(devEui, gatewayId, timestamp, rssi, snr, rfScore);
+    // Include multi-gateway metrics: best_rssi, best_snr, gateway_count
+    await storeUplink(
+      devEui, 
+      gatewayId, 
+      timestamp, 
+      rssi, 
+      snr, 
+      rfScore, 
+      isBest,
+      bestRssi,
+      bestSnr,
+      gatewayCount
+    );
   }
 }
 
@@ -152,8 +210,12 @@ async function processUplink(payload) {
  * @param {number} rssi - RSSI value
  * @param {number} snr - SNR value
  * @param {number} rfScore - Computed RF score
+ * @param {boolean} isBest - Whether this gateway has the best SNR
+ * @param {number} bestRssi - Best RSSI across all gateways
+ * @param {number} bestSnr - Best SNR across all gateways
+ * @param {number} gatewayCount - Number of gateways that received this uplink
  */
-async function storeUplink(devEui, gatewayId, timestamp, rssi, snr, rfScore) {
+async function storeUplink(devEui, gatewayId, timestamp, rssi, snr, rfScore, isBest, bestRssi, bestSnr, gatewayCount) {
   const client = await db.getClient();
   
   try {
@@ -177,11 +239,21 @@ async function storeUplink(devEui, gatewayId, timestamp, rssi, snr, rfScore) {
     
     // Insert uplink
     // Triggers will automatically update gateways.last_seen and devices.last_seen
-    // is_best defaults to FALSE per schema
+    // is_best marks the gateway with highest SNR
     await client.query(`
       INSERT INTO uplinks (dev_eui, gateway_id, timestamp, rssi, snr, rf_score, is_best)
-      VALUES ($1, $2, $3, $4, $5, $6, FALSE)
-    `, [devEui, gatewayId, timestamp, rssi, snr, rfScore]);
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [devEui, gatewayId, timestamp, rssi, snr, rfScore, isBest]);
+    
+    // Log multi-gateway metrics for debugging
+    logger.debug('Uplink stored with multi-gateway metrics', {
+      devEui,
+      gatewayId,
+      isBest,
+      bestRssi,
+      bestSnr,
+      gatewayCount,
+    });
     
     await client.query('COMMIT');
     logger.debug('Uplink stored successfully', { devEui, gatewayId, timestamp });

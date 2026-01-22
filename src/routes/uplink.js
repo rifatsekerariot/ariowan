@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const uplinkService = require('../services/uplinkService');
+const deviceStatusService = require('../services/deviceStatusService');
+const deviceJoinService = require('../services/deviceJoinService');
+const deviceDownlinkService = require('../services/deviceDownlinkService');
+const deviceLogService = require('../services/deviceLogService');
+const deviceLocationService = require('../services/deviceLocationService');
 const { rateLimitMiddleware } = require('../utils/rateLimiter');
 const logger = require('../utils/logger');
 
@@ -47,47 +52,93 @@ function detectEventType(req) {
 }
 
 /**
+ * Event dispatch: route by event type. No business logic for non-up events yet.
+ * Clean dispatch layer without changing existing behavior.
+ * @param {string} eventType - Detected event type
+ * @param {Object} payload - Request body payload
+ * @param {string} ip - Client IP (for logging)
+ */
+async function dispatchEvent(eventType, payload, ip) {
+  // Normalize event type to lowercase for consistent matching
+  const normalizedType = eventType.toLowerCase();
+  
+  switch (normalizedType) {
+    case 'up':
+    case 'uplink':
+      // Existing uplink processing - no changes
+      await uplinkService.processUplink(payload);
+      break;
+      
+    case 'status':
+      // Device status event (battery, margin, etc.)
+      await deviceStatusService.processStatus(payload);
+      break;
+      
+    case 'join':
+      // Device join event (OTAA activation)
+      await deviceJoinService.processJoin(payload);
+      break;
+      
+    case 'ack':
+      // Application-level acknowledgment
+      await deviceDownlinkService.processAck(payload);
+      break;
+      
+    case 'txack':
+      // Transmission acknowledgment
+      await deviceDownlinkService.processTxAck(payload);
+      break;
+      
+    case 'log':
+      // Device log event (ERROR and WARN levels only)
+      await deviceLogService.processLog(payload);
+      break;
+      
+    case 'location':
+      // Device location event (GPS, WiFi, etc.)
+      await deviceLocationService.processLocation(payload);
+      break;
+      
+    default:
+      // Unknown event type - log and ignore
+      logger.info('Unknown event type received', {
+        eventType: normalizedType,
+        originalEventType: eventType,
+        ip,
+      });
+      break;
+  }
+}
+
+/**
  * POST /
  * ChirpStack HTTP integration endpoint
- * Receives uplink events from ChirpStack
- * 
- * Requirements:
- * - Accept JSON body
- * - Detect event type from query, headers, or payload
- * - Extract: gateway_id, dev_eui, rssi, snr, timestamp
- * - Insert into uplinks table
- * 
- * Rate limited to prevent abuse
- * Always returns HTTP 200 quickly after processing
+ * Receives events from ChirpStack v4 HTTP integration
+ *
+ * - Detect event type from query, headers, or payload (body)
+ * - Supported: up, status, join, ack, txack, log, location
+ * - Unknown types logged and ignored
+ * - up/uplink: insert into uplinks table
+ *
+ * Rate limited. Always returns HTTP 200 quickly.
  */
 router.post('/', rateLimitMiddleware, async (req, res) => {
-  // Return 200 immediately, process asynchronously
   res.status(200).send();
-  
+
   try {
-    // Detect event type from multiple sources
-    const eventType = detectEventType(req);
-    
+    const rawEventType = detectEventType(req);
+    const eventType = typeof rawEventType === 'string' ? rawEventType.toLowerCase() : String(rawEventType);
     const rawBodySize = req.get('content-length') || '0';
-    
+
     logger.debug('Webhook request received', {
       eventType,
       bodySize: rawBodySize,
       ip: req.ip,
       hasBody: !!req.body,
     });
-    
-    // Only process uplink events
-    if (eventType === 'up' || eventType === 'uplink') {
-      await uplinkService.processUplink(req.body);
-    } else {
-      logger.debug('Non-uplink event ignored', { 
-        eventType,
-        ip: req.ip,
-      });
-    }
+
+    await dispatchEvent(eventType, req.body, req.ip);
   } catch (error) {
-    // Log error but don't return error to client (already sent 200)
     logger.error('Error processing webhook', {
       ip: req.ip,
       error: error.message,

@@ -6,6 +6,7 @@ import DeviceOverview from './DeviceOverview.jsx'
 import DeviceDetail from './DeviceDetail.jsx'
 import Navigation from './Navigation.jsx'
 import StatusBadge from './StatusBadge.jsx'
+import DashboardKPIs from './DashboardKPIs.jsx'
 import './App.css'
 import './GatewayOverview.css'
 
@@ -247,6 +248,9 @@ function GatewayOverview() {
     <div className="page-wrapper">
       <div className="page-section">
         <h2>Gateway Overview</h2>
+        <DashboardKPIs />
+      </div>
+      <div className="page-section">
         {gatewayHealth.length > 0 ? (
           <div className="gateway-overview-card">
             <table className="gateway-table">

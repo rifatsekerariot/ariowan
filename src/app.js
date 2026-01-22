@@ -53,6 +53,7 @@ db.initializeDatabase()
     const lastUplinkRoutes = require('./routes/lastUplink');
     const gatewayRoutes = require('./routes/gateways');
     const deviceRoutes = require('./routes/devices');
+    const networkHealthRoutes = require('./routes/networkHealth');
     
     // Register routes with tracking
     // Health check at root (standard for health checks)
@@ -78,6 +79,9 @@ db.initializeDatabase()
     routeTracker.trackRoute('GET', '/devices/health', '/api');
     routeTracker.trackRoute('GET', '/devices/:eui/metrics', '/api');
     routeTracker.trackRoute('GET', '/devices/:devEui', '/api');
+    
+    app.use('/api', networkHealthRoutes);
+    routeTracker.trackRoute('GET', '/network-health', '/api');
     
     // Log all registered routes at startup
     routeTracker.logRoutes(logger);
