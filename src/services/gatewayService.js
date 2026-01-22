@@ -3,27 +3,52 @@ const { calculateStabilityIndex, calculateStabilityIndexForGateway } = require('
 const logger = require('../utils/logger');
 
 /**
+ * Calculate health score based on SNR and RSSI thresholds
+ * - SNR > 7 and RSSI > -90 => 100
+ * - SNR 3–7 => 70
+ * - Else => 40
+ * 
+ * @param {number} avgSnr - Average SNR
+ * @param {number} avgRssi - Average RSSI
+ * @returns {number} Health score (40, 70, or 100)
+ */
+function calculateHealthScore(avgSnr, avgRssi) {
+  if (avgSnr > 7 && avgRssi > -90) {
+    return 100;
+  } else if (avgSnr >= 3 && avgSnr <= 7) {
+    return 70;
+  } else {
+    return 40;
+  }
+}
+
+/**
  * Get health metrics for all gateways
  * Uses PostgreSQL query with optimized indexes
  * Returns empty array if no data exists
+ * 
+ * Returns:
+ * - gateway_id
+ * - last_seen
+ * - avg_snr (last 15 minutes)
+ * - avg_rssi (last 15 minutes)
+ * - health_score (calculated based on SNR and RSSI thresholds)
+ * 
  * @returns {Promise<Array>} Array of gateway health objects (empty array if no data)
  */
 async function getGatewayHealth() {
   try {
     // Query uses idx_uplinks_gateway_id_timestamp index
+    // Get avg_snr and avg_rssi from last 15 minutes
     const result = await db.query(`
       SELECT 
         g.gateway_id,
-        ROUND(AVG(u.rf_score)::numeric, 2) as avg_score,
-        CASE 
-          WHEN AVG(u.rf_score) >= 80 THEN 'HEALTHY'
-          WHEN AVG(u.rf_score) >= 50 THEN 'DEGRADED'
-          ELSE 'CRITICAL'
-        END as status,
+        ROUND(AVG(u.snr)::numeric, 2) as avg_snr,
+        ROUND(AVG(u.rssi)::numeric, 2) as avg_rssi,
         MAX(u.timestamp) as last_seen
       FROM gateways g
       INNER JOIN uplinks u ON g.gateway_id = u.gateway_id
-      WHERE u.timestamp >= NOW() - INTERVAL '1 hour'
+      WHERE u.timestamp >= NOW() - INTERVAL '15 minutes'
       GROUP BY g.gateway_id
       HAVING COUNT(u.id) > 0
       ORDER BY g.gateway_id
@@ -35,17 +60,24 @@ async function getGatewayHealth() {
       return [];
     }
     
-    // Calculate stability index for each gateway
+    // Calculate health score for each gateway
     const gatewayHealth = [];
     for (const row of result.rows) {
-      const stabilityIndex = await calculateStabilityIndexForGateway(row.gateway_id);
+      const avgSnr = row.avg_snr ? parseFloat(row.avg_snr) : null;
+      const avgRssi = row.avg_rssi ? parseFloat(row.avg_rssi) : null;
+      
+      // Calculate health_score based on thresholds
+      let healthScore = null;
+      if (avgSnr !== null && avgRssi !== null) {
+        healthScore = calculateHealthScore(avgSnr, avgRssi);
+      }
       
       gatewayHealth.push({
-        gatewayId: row.gateway_id,
-        avgScore: parseFloat(row.avg_score),
-        status: row.status,
-        lastSeen: row.last_seen,
-        stabilityIndex: stabilityIndex,
+        gateway_id: row.gateway_id,
+        last_seen: row.last_seen,
+        avg_snr: avgSnr,
+        avg_rssi: avgRssi,
+        health_score: healthScore,
       });
     }
     

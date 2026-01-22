@@ -1,0 +1,56 @@
+.rf-stability-indicator {
+  background-color: var(--bg-card);
+  border-radius: 6px;
+  padding: var(--spacing-md);
+  border-left: 3px solid transparent;
+}
+
+.rf-stability-indicator--stable {
+  border-left-color: var(--healthy);
+}
+
+.rf-stability-indicator--unstable {
+  border-left-color: var(--degraded);
+}
+
+.rf-stability-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-system);
+}
+
+.rf-stability-value {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.rf-stability-badge {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: 12px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rf-stability-badge--stable {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: var(--healthy);
+}
+
+.rf-stability-badge--unstable {
+  background-color: rgba(234, 179, 8, 0.2);
+  color: var(--degraded);
+}
+
+.rf-stability-stddev {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

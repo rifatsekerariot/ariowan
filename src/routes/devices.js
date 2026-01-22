@@ -59,6 +59,22 @@ router.get('/devices/:eui/metrics', async (req, res) => {
 });
 
 /**
+ * GET /api/devices/silent
+ * Get devices that have been silent (last_seen > 2x expected interval)
+ * Returns empty array [] if no silent devices exist
+ */
+router.get('/devices/silent', async (req, res) => {
+  try {
+    const silentDevices = await deviceService.getSilentDevices();
+    // Always return array, even if empty
+    res.json(silentDevices || []);
+  } catch (error) {
+    logger.error('Error fetching silent devices', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /api/devices/:devEui
  * Get detailed information for a specific device
  */

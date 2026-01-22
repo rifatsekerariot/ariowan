@@ -6,29 +6,58 @@ const EXPECTED_UPLINK_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 const OFFLINE_THRESHOLD_MS = 5 * EXPECTED_UPLINK_INTERVAL_MS; // 75 minutes
 
 /**
+ * Determine device status based on last_seen timestamp
+ * - last_seen < 10 min => ONLINE
+ * - last_seen 10–60 min => WARNING
+ * - else => OFFLINE
+ * 
+ * @param {Date|string} lastSeen - Last seen timestamp
+ * @returns {string} Status (ONLINE, WARNING, or OFFLINE)
+ */
+function determineDeviceStatus(lastSeen) {
+  if (!lastSeen) {
+    return 'OFFLINE';
+  }
+  
+  const now = new Date();
+  const lastSeenDate = new Date(lastSeen);
+  const diffMs = now - lastSeenDate;
+  const diffMins = diffMs / (1000 * 60);
+  
+  if (diffMins < 10) {
+    return 'ONLINE';
+  } else if (diffMins >= 10 && diffMins < 60) {
+    return 'WARNING';
+  } else {
+    return 'OFFLINE';
+  }
+}
+
+/**
  * Get health metrics for all devices
  * Uses PostgreSQL query with optimized indexes
  * Returns empty array if no data exists
+ * 
+ * Returns:
+ * - dev_eui
+ * - last_seen
+ * - uplink_count_last_24h
+ * - status (ONLINE, WARNING, or OFFLINE)
+ * 
  * @returns {Promise<Array>} Array of device health objects (empty array if no data)
  */
 async function getDeviceHealth() {
   try {
     // Query uses idx_uplinks_dev_eui_timestamp index
+    // Get dev_eui, last_seen, and uplink count for last 24 hours
     const result = await db.query(`
       SELECT 
         d.dev_eui,
-        ROUND(AVG(u.rf_score)::numeric, 2) as avg_score,
-        CASE 
-          WHEN AVG(u.rf_score) >= 80 THEN 'HEALTHY'
-          WHEN AVG(u.rf_score) >= 50 THEN 'DEGRADED'
-          ELSE 'CRITICAL'
-        END as rf_status,
-        MAX(u.timestamp) as last_seen
+        MAX(u.timestamp) as last_seen,
+        COUNT(CASE WHEN u.timestamp >= NOW() - INTERVAL '24 hours' THEN 1 END) as uplink_count_last_24h
       FROM devices d
-      INNER JOIN uplinks u ON d.dev_eui = u.dev_eui
-      WHERE u.timestamp >= NOW() - INTERVAL '1 hour'
+      LEFT JOIN uplinks u ON d.dev_eui = u.dev_eui
       GROUP BY d.dev_eui
-      HAVING COUNT(u.id) > 0
       ORDER BY d.dev_eui
     `);
     
@@ -38,17 +67,17 @@ async function getDeviceHealth() {
       return [];
     }
     
-    // Calculate connectivity status for each device
+    // Calculate status for each device
     const deviceHealth = [];
     for (const row of result.rows) {
-      const connectivityStatus = calculateUplinkContinuity(row.last_seen);
+      const status = determineDeviceStatus(row.last_seen);
+      const uplinkCount = parseInt(row.uplink_count_last_24h || 0, 10);
       
       deviceHealth.push({
-        devEui: row.dev_eui,
-        avgScore: parseFloat(row.avg_score),
-        rfStatus: row.rf_status,
-        connectivityStatus: connectivityStatus,
-        lastSeen: row.last_seen,
+        dev_eui: row.dev_eui,
+        last_seen: row.last_seen,
+        uplink_count_last_24h: uplinkCount,
+        status: status,
       });
     }
     
@@ -274,9 +303,58 @@ async function getDeviceMetrics(devEui, from, to) {
   }
 }
 
+/**
+ * Get silent devices (devices with last_seen > 2x expected uplink interval)
+ * Expected interval is 15 minutes, so threshold is 30 minutes
+ * 
+ * Returns:
+ * - dev_eui
+ * - last_seen
+ * - silence_duration_minutes
+ * 
+ * @returns {Promise<Array>} Array of silent device objects (empty array if none)
+ */
+async function getSilentDevices() {
+  try {
+    // Expected uplink interval: 15 minutes
+    // Silent threshold: 2x = 30 minutes
+    // Query devices where last_seen is older than 30 minutes
+    const result = await db.query(`
+      SELECT 
+        d.dev_eui,
+        d.last_seen,
+        EXTRACT(EPOCH FROM (NOW() - d.last_seen)) / 60 as silence_duration_minutes
+      FROM devices d
+      WHERE d.last_seen IS NOT NULL
+        AND d.last_seen < NOW() - INTERVAL '30 minutes'
+      ORDER BY d.last_seen ASC
+    `);
+    
+    // Return empty array if no results
+    if (result.rows.length === 0) {
+      logger.debug('No silent devices found');
+      return [];
+    }
+    
+    // Format response
+    const silentDevices = result.rows.map(row => ({
+      dev_eui: row.dev_eui,
+      last_seen: row.last_seen,
+      silence_duration_minutes: Math.round(parseFloat(row.silence_duration_minutes)),
+    }));
+    
+    logger.debug('Silent devices retrieved', { count: silentDevices.length });
+    return silentDevices;
+  } catch (error) {
+    logger.error('Error fetching silent devices', error);
+    throw error;
+  }
+}
+
 module.exports = {
   getAllDevices,
   getDeviceHealth,
   getDeviceDetails,
   getDeviceMetrics,
+  getSilentDevices,
 };

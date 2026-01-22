@@ -67,6 +67,7 @@ db.initializeDatabase()
     // All API routes under /api prefix
     app.use('/api', lastUplinkRoutes);
     routeTracker.trackRoute('GET', '/last-uplink', '/api');
+    routeTracker.trackRoute('GET', '/uplinks/reliability', '/api');
     
     app.use('/api', gatewayRoutes);
     routeTracker.trackRoute('GET', '/gateways', '/api');
@@ -77,6 +78,7 @@ db.initializeDatabase()
     app.use('/api', deviceRoutes);
     routeTracker.trackRoute('GET', '/devices', '/api');
     routeTracker.trackRoute('GET', '/devices/health', '/api');
+    routeTracker.trackRoute('GET', '/devices/silent', '/api');
     routeTracker.trackRoute('GET', '/devices/:eui/metrics', '/api');
     routeTracker.trackRoute('GET', '/devices/:devEui', '/api');
     

@@ -24,4 +24,19 @@ router.get('/last-uplink', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/uplinks/reliability
+ * Get uplink reliability metrics for the last 1 hour
+ * Returns stddev_snr, stddev_rssi, and classification (Stable/Unstable)
+ */
+router.get('/uplinks/reliability', async (req, res) => {
+  try {
+    const reliability = await uplinkService.getUplinkReliability();
+    res.json(reliability);
+  } catch (error) {
+    logger.error('Error fetching uplink reliability', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

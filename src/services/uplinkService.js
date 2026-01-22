@@ -310,7 +310,66 @@ async function getLastUplink() {
   }
 }
 
+/**
+ * Get uplink reliability metrics for the last 1 hour
+ * Calculates standard deviation of SNR and RSSI
+ * Classifies reliability as Stable or Unstable
+ * 
+ * @returns {Promise<Object>} Reliability metrics
+ */
+async function getUplinkReliability() {
+  try {
+    // Query uses idx_uplinks_timestamp index
+    // Calculate stddev_snr and stddev_rssi for last 1 hour
+    const result = await db.query(`
+      SELECT 
+        ROUND(STDDEV(u.snr)::numeric, 2) as stddev_snr,
+        ROUND(STDDEV(u.rssi)::numeric, 2) as stddev_rssi,
+        COUNT(*) as uplink_count
+      FROM uplinks u
+      WHERE u.timestamp >= NOW() - INTERVAL '1 hour'
+    `);
+    
+    if (result.rows.length === 0 || !result.rows[0].stddev_snr) {
+      return {
+        stddev_snr: null,
+        stddev_rssi: null,
+        classification: 'UNKNOWN',
+        uplink_count: 0,
+      };
+    }
+    
+    const row = result.rows[0];
+    const stddevSnr = row.stddev_snr ? parseFloat(row.stddev_snr) : null;
+    const stddevRssi = row.stddev_rssi ? parseFloat(row.stddev_rssi) : null;
+    const uplinkCount = parseInt(row.uplink_count || 0, 10);
+    
+    // Classify reliability based on stddev_snr threshold
+    // Stable: stddev_snr < 1.5
+    // Unstable: stddev_snr >= 1.5
+    let classification = 'UNKNOWN';
+    if (stddevSnr !== null) {
+      if (stddevSnr < 1.5) {
+        classification = 'Stable';
+      } else {
+        classification = 'Unstable';
+      }
+    }
+    
+    return {
+      stddev_snr: stddevSnr,
+      stddev_rssi: stddevRssi,
+      classification: classification,
+      uplink_count: uplinkCount,
+    };
+  } catch (error) {
+    logger.error('Error fetching uplink reliability', error);
+    throw error;
+  }
+}
+
 module.exports = {
   processUplink,
   getLastUplink,
+  getUplinkReliability,
 };
